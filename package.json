@@ -1,0 +1,44 @@
+{
+  "type": "module",
+  "name": "clienttracking-backend",
+  "version": "1.0.0",
+  "description": "Client Tracking System - Node.js with Rest API",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "seed": "node app/scripts/seedLookups.js",
+    "add-status": "node app/scripts/addStatusColumn.js",
+    "migrate-ref-orgs": "node app/scripts/migrateToReferringOrgs.js",
+    "add-ref-org-type": "node app/scripts/addReferringOrgTypeColumn.js",
+    "add-referrals": "node app/scripts/addReferralsTable.js",
+    "add-org-contact": "node app/scripts/addOrganizationContactFields.js",
+    "add-locations": "node app/scripts/addLocationsTable.js",
+    "add-user-org": "node app/scripts/addUserOrganizationId.js",
+    "add-client-intake-location": "node app/scripts/addClientIntakeLocationId.js",
+    "add-client-race-ethnicity": "node app/scripts/addClientRaceEthnicity.js",
+    "add-client-gender": "node app/scripts/addClientGenderId.js",
+    "add-client-initial-situation": "node app/scripts/addClientInitialSituationId.js",
+    "add-client-parent-phone": "node app/scripts/addClientParentPhone.js",
+    "add-encounters": "node app/scripts/addEncountersTable.js",
+    "add-client-services": "node app/scripts/addClientServicesTable.js",
+    "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js"
+  },
+  "keywords": [
+    "node.js",
+    "express",
+    "sequelize"
+  ],
+  "license": "ISC",
+  "dependencies": {
+    "bcryptjs": "^2.4.3",
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.17.3",
+    "jsonwebtoken": "^8.5.1",
+    "morgan": "^1.10.0",
+    "mysql2": "^2.3.3",
+    "sequelize": "^6.19.0",
+    "winston": "^3.11.0",
+    "winston-daily-rotate-file": "^4.7.1"
+  }
+}
