@@ -1,4 +1,4 @@
-name: AWS DEPLOY TO STAGING
+name: AWS DEPLOY TO PRODUCTION
 # turn off deploy to AWS
 
 on:
@@ -48,7 +48,6 @@ jobs:
           REMOTE_HOST: "ec2-34-222-213-140.us-west-2.compute.amazonaws.com"
           REMOTE_USER: ubuntu
           TARGET: "nodeapps/clienttracking-backend"
-
       - name: Execute SSH commmands on remote server
         uses: JimCronqvist/action-ssh@master
         env:
