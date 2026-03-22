@@ -3,6 +3,7 @@ import db from "../models/index.js";
 const Location = db.location;
 const Organization = db.organization;
 
+const ATTRS = ["organizationId", "name", "address", "city", "state", "zip", "contactName", "phoneNumber"];
 const exports = {};
 
 exports.findAll = (req, res) => {
@@ -27,14 +28,22 @@ exports.findOne = (req, res) => {
 };
 
 exports.create = (req, res) => {
-  Location.create(req.body)
-    .then((data) => res.send(data))
+  const data = {};
+  ATTRS.forEach((k) => {
+    if (req.body[k] !== undefined) data[k] = req.body[k];
+  });
+  Location.create(data)
+    .then((created) => res.send(created))
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
 exports.update = (req, res) => {
   const id = req.params.id;
-  Location.update(req.body, { where: { id } })
+  const data = {};
+  ATTRS.forEach((k) => {
+    if (req.body[k] !== undefined) data[k] = req.body[k];
+  });
+  Location.update(data, { where: { id } })
     .then((num) => {
       if (num[0] >= 1) res.send({ message: "Location was updated successfully." });
       else res.send({ message: `Cannot update location with id=${id}.` });
