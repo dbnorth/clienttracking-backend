@@ -6,6 +6,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "bundle": "mkdir deploy && cp -r app server.js package.json package-lock.json clienttracking-backend.service .env deploy",
     "seed": "node app/scripts/seedLookups.js",
     "add-status": "node app/scripts/addStatusColumn.js",
     "migrate-ref-orgs": "node app/scripts/migrateToReferringOrgs.js",
