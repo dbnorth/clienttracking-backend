@@ -45,6 +45,7 @@ exports.create = (req, res) => {
 
 exports.findAll = (req, res) => {
   const userId = req.query.userId;
+  const organizationId = req.query.organizationId ? parseInt(req.query.organizationId, 10) : null;
   const status = req.query.status;
   const name = req.query.name?.trim();
   const phone = req.query.phone?.trim();
@@ -52,7 +53,11 @@ exports.findAll = (req, res) => {
   const housingLocationId = req.query.housingLocationId ? parseInt(req.query.housingLocationId, 10) : null;
 
   const andConditions = [];
-  if (userId) andConditions.push({ userId });
+  if (organizationId) {
+    andConditions.push({ "$intakeLocation.organizationId$": organizationId });
+  } else if (userId) {
+    andConditions.push({ userId });
+  }
   if (status) andConditions.push({ status });
   if (intakeLocationId) andConditions.push({ intakeLocationId });
   if (housingLocationId) andConditions.push({ housingLocationId });

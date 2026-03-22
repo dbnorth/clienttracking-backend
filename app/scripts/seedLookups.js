@@ -54,6 +54,9 @@ const lookupData = [
   { type: "service_provided", value: "Counseling", sortOrder: 2, status: "Active" },
   { type: "service_provided", value: "Transportation", sortOrder: 3, status: "Active" },
   { type: "service_provided", value: "Case Management", sortOrder: 4, status: "Active" },
+  { type: "encounter_type", value: "In Person", sortOrder: 1, status: "Active" },
+  { type: "encounter_type", value: "Phone", sortOrder: 2, status: "Active" },
+  { type: "encounter_type", value: "No Contact", sortOrder: 3, status: "Active" },
 ];
 
 async function seed() {
@@ -76,6 +79,18 @@ async function seed() {
   });
   if (createdAddr) {
     console.log("Added 'Address' housing location.");
+  }
+  const encounterTypeValues = [
+    { type: "encounter_type", value: "In Person" },
+    { type: "encounter_type", value: "Phone" },
+    { type: "encounter_type", value: "No Contact" },
+  ];
+  for (const item of encounterTypeValues) {
+    const [, created] = await Lookup.findOrCreate({
+      where: { type: item.type, value: item.value },
+      defaults: { ...item, sortOrder: encounterTypeValues.indexOf(item) + 1, status: "Active" },
+    });
+    if (created) console.log(`Added '${item.value}' to ${item.type}.`);
   }
   const raceEthnicityValues = [
     { type: "race", value: "American Indian or Alaska Native" },

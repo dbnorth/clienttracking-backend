@@ -59,6 +59,7 @@ db.client.hasMany(db.encounter, { foreignKey: "clientId", onDelete: "CASCADE" })
 db.encounter.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
 db.user.hasMany(db.encounter, { foreignKey: "userId", onDelete: "CASCADE" });
 db.encounter.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
+db.encounter.belongsTo(db.lookup, { as: "encounterType", foreignKey: "encounterTypeId" });
 
 db.client.hasMany(db.clientService, { foreignKey: "clientId", onDelete: "CASCADE" });
 db.clientService.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
