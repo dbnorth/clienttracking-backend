@@ -58,7 +58,7 @@ jobs:
           privateKey: ${{ secrets.SERVER_SSH_KEY }}
           debug: false
           command: |
-            cd nodeapps/tutorial-backend
+            cd nodeapps/clienttracking-backend
             npm install
             sudo systemctl stop clienttracking-backend
             sudo cp clienttracking-backend.service /lib/systemd/system/clienttracking-backend.service
