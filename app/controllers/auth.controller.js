@@ -113,7 +113,7 @@ exports.login = async (req, res) => {
     const user = await User.unscoped().findOne({
       where: { username: usernameNorm },
       attributes: ["id", "username", "password", "email", "fName", "lName", "organizationId", "role"],
-      include: [{ model: Organization, as: "organization", attributes: ["id", "name", "contactName", "phoneNumber"], required: false }],
+      include: [{ model: Organization, as: "organization", attributes: ["id", "name", "contactName", "phoneNumber", "logoUrl", "primaryColor"], required: false }],
     });
 
     if (!user) {

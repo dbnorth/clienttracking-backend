@@ -40,26 +40,27 @@ jobs:
       - run: npm run bundle
 
       - name: Deploy to Server
-        uses: easingthemes/ssh-deploy@v2.1.1
-        env:
+        uses: easingthemes/ssh-deploy@main
+        with:
           SSH_PRIVATE_KEY: ${{ secrets.SERVER_SSH_KEY }}
           ARGS: "-rltgoDzvO --delete"
           SOURCE: "deploy/"
-          REMOTE_HOST: "tutorial.eaglesoftwareteam.com"
+          REMOTE_HOST: "ec2-34-222-213-140.us-west-2.compute.amazonaws.com"
           REMOTE_USER: ubuntu
-          TARGET: "nodeapps/tutorial-backend"
+          TARGET: "nodeapps/clienttracking-backend"
+-backend"
       - name: Execute SSH commmands on remote server
         uses: JimCronqvist/action-ssh@master
         env:
           NAME: "Root"
         with:
-          hosts: "ubuntu@tutorial.eaglesoftwareteam.com"
+          hosts: "ubuntu@ec2-34-222-213-140.us-west-2.compute.amazonaws.com"
           privateKey: ${{ secrets.SERVER_SSH_KEY }}
           debug: false
           command: |
             cd nodeapps/tutorial-backend
             npm install
-            sudo systemctl stop tutorial-backend
-            sudo cp tutorial-backend.service /lib/systemd/system/tutorial-backend.service
+            sudo systemctl stop clienttracking-backend
+            sudo cp clienttracking-backend.service /lib/systemd/system/clienttracking-backend.service
             sudo systemctl daemon-reload
-            sudo systemctl start tutorial-backend
+            sudo systemctl start clienttracking-backend
