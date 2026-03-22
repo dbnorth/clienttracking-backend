@@ -7,6 +7,7 @@ const Encounter = SequelizeInstance.define("encounter", {
   time: { type: Sequelize.TIME },
   userId: { type: Sequelize.INTEGER, allowNull: false },
   clientId: { type: Sequelize.INTEGER, allowNull: false },
+  encounterTypeId: { type: Sequelize.INTEGER },
   notes: { type: Sequelize.TEXT },
 });
 

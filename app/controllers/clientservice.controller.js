@@ -55,8 +55,8 @@ exports.findAll = (req, res) => {
     { model: db.client, as: "client", attributes: ["id", "firstName", "lastName", "middleName", "phone"], required: true },
     { model: Location, as: "location", attributes: ["id", "name", "address"], required: false, include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
     { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
-    { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes"] },
-    { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes"] },
+    { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
+    { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
   ];
   if (userId) {
     include[0].where = { userId };
@@ -72,7 +72,7 @@ exports.findAll = (req, res) => {
 
 exports.createBulk = async (req, res) => {
   const clientId = parseInt(req.params.clientId, 10);
-  const { items, userId, notes, time } = req.body;
+  const { items, userId, notes, time, encounterTypeId } = req.body;
   const today = new Date().toISOString().split("T")[0];
   const now = new Date();
   const encounterTime = time || `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
@@ -86,16 +86,20 @@ exports.createBulk = async (req, res) => {
   const byService = new Map();
   const toUpdateIdsSet = new Set();
   const toCancelIdsSet = new Set();
+  const toBool = (v) => v === true || v === "true" || v === 1;
   items.forEach((item) => {
     const serviceProvidedId = parseInt(item.serviceProvidedId, 10);
     if (!serviceProvidedId) return;
     const existingClientServiceId = item.existingClientServiceId ? parseInt(item.existingClientServiceId, 10) : null;
-    if (item.cancel && existingClientServiceId) toCancelIdsSet.add(existingClientServiceId);
-    if (item.provided && existingClientServiceId && !item.cancel) toUpdateIdsSet.add(existingClientServiceId);
+    const requested = toBool(item.requested);
+    const provided = toBool(item.provided);
+    const cancel = toBool(item.cancel);
+    if (cancel && existingClientServiceId) toCancelIdsSet.add(existingClientServiceId);
+    if (provided && existingClientServiceId && !cancel) toUpdateIdsSet.add(existingClientServiceId);
     const existing = byService.get(serviceProvidedId) || { requested: false, provided: false, cancel: false };
-    if (item.requested) existing.requested = true;
-    if (item.provided) existing.provided = true;
-    if (item.cancel) existing.cancel = true;
+    if (requested) existing.requested = true;
+    if (provided) existing.provided = true;
+    if (cancel) existing.cancel = true;
     existing.existingClientServiceId = existingClientServiceId;
     byService.set(serviceProvidedId, existing);
   });
@@ -113,6 +117,7 @@ exports.createBulk = async (req, res) => {
       userId: uid,
       date: today,
       time: encounterTime,
+      encounterTypeId: encounterTypeId || null,
       notes: notes || null,
     });
     const encounterId = encounter.id;
@@ -179,8 +184,8 @@ exports.findAllForClient = (req, res) => {
     include: [
       { model: Location, as: "location", attributes: ["id", "name", "address"], include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
       { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
-      { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes"] },
-      { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes"] },
+      { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
+      { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
     ],
     order: [["requestedDate", "DESC"], ["id", "DESC"]],
   })
@@ -195,8 +200,8 @@ exports.findOne = (req, res) => {
     include: [
       { model: Location, as: "location", attributes: ["id", "name", "address"], include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
       { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
-      { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes"] },
-      { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes"] },
+      { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
+      { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
     ],
   })
     .then((data) => {

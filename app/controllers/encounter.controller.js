@@ -4,6 +4,7 @@ import logger from "../config/logger.js";
 const Encounter = db.encounter;
 const User = db.user;
 const Client = db.client;
+const Lookup = db.lookup;
 
 const exports = {};
 
@@ -17,6 +18,7 @@ exports.findAll = (req, res) => {
   const include = [
     { model: Client, as: "client", attributes: ["id", "firstName", "lastName", "middleName", "phone"], required: true },
     { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
+    { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
   ];
   if (userId) include[0].where = { userId };
   Encounter.findAll({
@@ -33,6 +35,7 @@ exports.create = (req, res) => {
     clientId: parseInt(req.params.clientId, 10),
     date: req.body.date,
     userId: req.body.userId,
+    encounterTypeId: req.body.encounterTypeId || null,
     notes: req.body.notes || null,
   };
   if (!data.userId) {
@@ -50,7 +53,10 @@ exports.findAllForClient = (req, res) => {
   const clientId = req.params.clientId;
   Encounter.findAll({
     where: { clientId },
-    include: [{ model: User, as: "user", attributes: ["id", "fName", "lName", "username"] }],
+    include: [
+      { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
+      { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+    ],
     order: [["date", "DESC"], ["id", "DESC"]],
   })
     .then((data) => res.send(data))
@@ -76,6 +82,7 @@ exports.findOne = (req, res) => {
         ],
       },
       { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
+      { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
     ],
   })
     .then((data) => {
@@ -88,7 +95,7 @@ exports.findOne = (req, res) => {
 exports.update = (req, res) => {
   const { clientId, id } = req.params;
   const data = {};
-  ["date", "time", "userId", "notes"].forEach((k) => {
+  ["date", "time", "userId", "encounterTypeId", "notes"].forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
   });
   Encounter.update(data, { where: { id, clientId } })
