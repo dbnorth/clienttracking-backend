@@ -10,6 +10,8 @@ const Organization = SequelizeInstance.define("organization", {
   city: { type: Sequelize.STRING(100) },
   state: { type: Sequelize.STRING(50) },
   zip: { type: Sequelize.STRING(20) },
+  logoUrl: { type: Sequelize.STRING(500) },
+  primaryColor: { type: Sequelize.STRING(20) },
 });
 
 export default Organization;

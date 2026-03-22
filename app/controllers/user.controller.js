@@ -33,8 +33,11 @@ exports.findOne = (req, res) => {
 
 exports.create = async (req, res) => {
   const { fName, lName, email, username, password, organizationId, role } = req.body;
-  if (!fName?.trim() || !lName?.trim() || !email?.trim() || !username?.trim() || !password) {
-    return res.status(400).send({ message: "First name, last name, email, username, and password are required." });
+  if (!fName?.trim() || !lName?.trim() || !username?.trim() || !password) {
+    return res.status(400).send({ message: "First name, last name, username, and password are required." });
+  }
+  if (!organizationId) {
+    return res.status(400).send({ message: "Organization is required." });
   }
   if (password.length < 8) {
     return res.status(400).send({ message: "Password must be at least 8 characters." });
@@ -44,12 +47,14 @@ exports.create = async (req, res) => {
   }
   const validRoles = ["admin", "worker", "none"];
   const roleVal = role && validRoles.includes(role) ? role : "worker";
-  const emailNorm = email.trim().toLowerCase();
+  const emailNorm = email?.trim() ? email.trim().toLowerCase() : null;
   const usernameNorm = username.trim().toLowerCase();
   const Op = db.Sequelize.Op;
   try {
+    const conflictWhere = [{ username: usernameNorm }];
+    if (emailNorm) conflictWhere.push({ email: emailNorm });
     const conflict = await User.findOne({
-      where: { [Op.or]: [{ email: emailNorm }, { username: usernameNorm }] },
+      where: { [Op.or]: conflictWhere },
       attributes: ["id"],
     });
     if (conflict) {
@@ -78,8 +83,11 @@ exports.create = async (req, res) => {
 exports.update = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   const { fName, lName, email, username, password, organizationId, role } = req.body;
-  if (!fName?.trim() || !lName?.trim() || !email?.trim() || !username?.trim()) {
-    return res.status(400).send({ message: "First name, last name, email, and username are required." });
+  if (!fName?.trim() || !lName?.trim() || !username?.trim()) {
+    return res.status(400).send({ message: "First name, last name, and username are required." });
+  }
+  if (!organizationId) {
+    return res.status(400).send({ message: "Organization is required." });
   }
   if (username.length < 3) {
     return res.status(400).send({ message: "Username must be at least 3 characters." });
@@ -87,7 +95,7 @@ exports.update = async (req, res) => {
   if (password !== undefined && password !== null && password !== "" && password.length < 8) {
     return res.status(400).send({ message: "Password must be at least 8 characters if provided." });
   }
-  const emailNorm = email.trim().toLowerCase();
+  const emailNorm = email?.trim() ? email.trim().toLowerCase() : null;
   const usernameNorm = username.trim().toLowerCase();
   const Op = db.Sequelize.Op;
   try {
@@ -95,13 +103,16 @@ exports.update = async (req, res) => {
     if (!existing) {
       return res.status(404).send({ message: "User not found." });
     }
+    const conflictWhere = emailNorm
+      ? {
+          [Op.and]: [
+            { [Op.or]: [{ email: emailNorm }, { username: usernameNorm }] },
+            { id: { [Op.ne]: id } },
+          ],
+        }
+      : { username: usernameNorm, id: { [Op.ne]: id } };
     const conflict = await User.findOne({
-      where: {
-        [Op.and]: [
-          { [Op.or]: [{ email: emailNorm }, { username: usernameNorm }] },
-          { id: { [Op.ne]: id } },
-        ],
-      },
+      where: conflictWhere,
       attributes: ["id"],
     });
     if (conflict) {

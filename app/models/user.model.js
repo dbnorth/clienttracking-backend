@@ -11,7 +11,7 @@ const User = SequelizeInstance.define(
     },
     fName: { type: Sequelize.STRING, allowNull: false },
     lName: { type: Sequelize.STRING, allowNull: false },
-    email: { type: Sequelize.STRING, allowNull: false, unique: true },
+    email: { type: Sequelize.STRING, allowNull: true, unique: true },
     username: { type: Sequelize.STRING(100), allowNull: false, unique: true },
     password: { type: Sequelize.STRING(255), allowNull: false },
     organizationId: { type: Sequelize.INTEGER },
