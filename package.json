@@ -20,6 +20,7 @@
     "make-user-email-nullable": "node app/scripts/makeUserEmailNullable.js",
     "add-encounter-type": "node app/scripts/addEncounterTypeId.js",
     "add-location-city-state-zip": "node app/scripts/addLocationCityStateZip.js",
+    "add-client-photo-url": "node app/scripts/addClientPhotoUrl.js",
     "add-client-intake-location": "node app/scripts/addClientIntakeLocationId.js",
     "add-client-race-ethnicity": "node app/scripts/addClientRaceEthnicity.js",
     "add-client-gender": "node app/scripts/addClientGenderId.js",

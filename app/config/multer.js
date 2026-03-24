@@ -36,3 +36,21 @@ export const uploadOrgLogo = multer({
   fileFilter,
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
 });
+
+const clientPhotosDir = "uploads/client-photos";
+const clientPhotoStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    fs.mkdirSync(clientPhotosDir, { recursive: true });
+    cb(null, clientPhotosDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = file.mimetype === "image/png" ? ".png" : file.mimetype === "image/jpeg" || file.mimetype === "image/jpg" ? ".jpg" : ".jpg";
+    cb(null, `${req.params.id}-${Date.now()}${ext}`);
+  },
+});
+
+export const uploadClientPhoto = multer({
+  storage: clientPhotoStorage,
+  fileFilter,
+  limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
+});

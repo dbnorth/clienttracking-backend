@@ -1,7 +1,10 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
+import path from "path";
+import fs from "fs";
 
 const Client = db.client;
+const clientPhotosDir = "uploads/client-photos";
 const Referral = db.referral;
 const Op = db.Sequelize.Op;
 const Lookup = db.lookup;
@@ -131,7 +134,7 @@ const CLIENT_ATTRS = [
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
   "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugOfChoiceId", "drugMethod", "housingTypeId", "housingRedGreen",
   "housingLocationId", "housingStreet", "housingCity", "housingState", "housingZip",
-  "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId",
+  "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
 
 exports.update = (req, res) => {
@@ -148,6 +151,44 @@ exports.update = (req, res) => {
       else res.send({ message: `Cannot update client with id=${id}.` });
     })
     .catch((err) => res.status(500).send({ message: err.message }));
+};
+
+exports.uploadPhoto = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!req.file) {
+    return res.status(400).send({ message: "No photo file uploaded." });
+  }
+  const photoUrl = path.join("client-photos", req.file.filename).replace(/\\/g, "/");
+  Client.update({ photoUrl }, { where: { id } })
+    .then((num) => {
+      if (num[0] >= 1) res.send({ message: "Photo uploaded successfully.", photoUrl });
+      else res.status(404).send({ message: `Client with id=${id} not found.` });
+    })
+    .catch((err) => {
+      logger.error(`Error uploading client photo: ${err.message}`);
+      res.status(500).send({ message: err.message || "Error uploading photo." });
+    });
+};
+
+exports.removePhoto = (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  Client.findByPk(id)
+    .then((client) => {
+      if (!client) return res.status(404).send({ message: `Client with id=${id} not found.` });
+      if (client.photoUrl) {
+        const filePath = path.join(clientPhotosDir, path.basename(client.photoUrl));
+        if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+      }
+      return Client.update({ photoUrl: null }, { where: { id } });
+    })
+    .then((num) => {
+      if (num[0] >= 1) res.send({ message: "Photo removed successfully." });
+      else res.status(404).send({ message: `Client with id=${id} not found.` });
+    })
+    .catch((err) => {
+      logger.error(`Error removing client photo: ${err.message}`);
+      res.status(500).send({ message: err.message || "Error removing photo." });
+    });
 };
 
 exports.delete = (req, res) => {
