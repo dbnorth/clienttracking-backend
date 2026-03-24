@@ -4,6 +4,7 @@ import logger from "../config/logger.js";
 const Encounter = db.encounter;
 const User = db.user;
 const Client = db.client;
+const Location = db.location;
 const Lookup = db.lookup;
 
 const exports = {};
@@ -12,15 +13,28 @@ exports.findAll = (req, res) => {
   const clientId = req.query.clientId ? parseInt(req.query.clientId, 10) : null;
   const date = req.query.date?.trim();
   const userId = req.query.userId ? parseInt(req.query.userId, 10) : null;
+  const organizationId = req.query.organizationId ? parseInt(req.query.organizationId, 10) : null;
   const where = {};
   if (clientId) where.clientId = clientId;
   if (date) where.date = date;
+  const clientInclude = {
+    model: Client,
+    as: "client",
+    attributes: ["id", "firstName", "lastName", "middleName", "phone"],
+    required: true,
+  };
+  if (organizationId) {
+    clientInclude.include = [
+      { model: Location, as: "intakeLocation", where: { organizationId }, required: true, attributes: [] },
+    ];
+  } else if (userId) {
+    clientInclude.where = { userId };
+  }
   const include = [
-    { model: Client, as: "client", attributes: ["id", "firstName", "lastName", "middleName", "phone"], required: true },
+    clientInclude,
     { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
     { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
   ];
-  if (userId) include[0].where = { userId };
   Encounter.findAll({
     where,
     include,
