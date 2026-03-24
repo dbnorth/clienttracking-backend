@@ -50,6 +50,12 @@ db.client.belongsTo(db.referringOrganization, { as: "organization", foreignKey: 
 db.client.belongsTo(db.location, { as: "intakeLocation", foreignKey: "intakeLocationId" });
 
 db.referringOrganization.belongsTo(db.lookup, { as: "referringOrganizationType", foreignKey: "referringOrganizationTypeId" });
+db.organization.hasMany(db.referringOrganization, { foreignKey: "organizationId", onDelete: "CASCADE" });
+db.referringOrganization.belongsTo(db.organization, {
+  as: "organization",
+  foreignKey: "organizationId",
+  onDelete: "CASCADE",
+});
 
 db.client.hasMany(db.serviceRecord, { foreignKey: "clientId", onDelete: "CASCADE" });
 db.serviceRecord.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
@@ -75,5 +81,8 @@ db.referral.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" }
 
 db.organization.hasMany(db.location, { foreignKey: "organizationId", onDelete: "CASCADE" });
 db.location.belongsTo(db.organization, { foreignKey: "organizationId", onDelete: "CASCADE" });
+
+db.organization.hasMany(db.lookup, { foreignKey: "organizationId", onDelete: "CASCADE" });
+db.lookup.belongsTo(db.organization, { as: "organization", foreignKey: "organizationId", onDelete: "CASCADE" });
 
 export default db;

@@ -2,6 +2,8 @@ import db from "../models/index.js";
 import logger from "../config/logger.js";
 import path from "path";
 import fs from "fs";
+import { getClientTenantScope } from "../authorization/tenantScope.js";
+import { clientAccessibleForScope } from "../authorization/clientAccess.js";
 
 const Client = db.client;
 const clientPhotosDir = "uploads/client-photos";
@@ -13,7 +15,11 @@ const Location = db.location;
 
 const exports = {};
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
+  const scope = getClientTenantScope(req);
+  if (scope.mode === "none") {
+    return res.status(403).send({ message: "You must belong to an organization to create clients." });
+  }
   const data = { ...req.body };
   const referralCaseWorker = data.referralCaseWorker;
   const referralPhone = data.referralPhone;
@@ -24,6 +30,23 @@ exports.create = (req, res) => {
   if (!data.statusChangeDate && data.status) data.statusChangeDate = new Date().toISOString().split("T")[0];
   if (Array.isArray(data.benefits)) data.benefits = JSON.stringify(data.benefits);
   data.userId = req.body.userId;
+
+  if (scope.mode === "scoped" && data.intakeLocationId) {
+    try {
+      const loc = await Location.findByPk(data.intakeLocationId, { attributes: ["id", "organizationId"] });
+      if (!loc) {
+        return res.status(400).send({ message: "Invalid intake location." });
+      }
+      if (Number(loc.organizationId) !== Number(scope.organizationId)) {
+        return res.status(403).send({ message: "Intake location must belong to your organization." });
+      }
+    } catch (err) {
+      logger.error(`Error validating intake location: ${err.message}`);
+      return res.status(500).send({ message: err.message || "Could not validate intake location." });
+    }
+  } else if (scope.mode === "scoped" && !data.intakeLocationId) {
+    return res.status(400).send({ message: "Intake location is required for your organization." });
+  }
 
   Client.create(data)
     .then((result) => {
@@ -47,6 +70,11 @@ exports.create = (req, res) => {
 };
 
 exports.findAll = (req, res) => {
+  const scope = getClientTenantScope(req);
+  if (scope.mode === "none") {
+    return res.send([]);
+  }
+
   const userId = req.query.userId;
   const organizationId = req.query.organizationId ? parseInt(req.query.organizationId, 10) : null;
   const status = req.query.status;
@@ -56,7 +84,12 @@ exports.findAll = (req, res) => {
   const housingLocationId = req.query.housingLocationId ? parseInt(req.query.housingLocationId, 10) : null;
 
   const andConditions = [];
-  if (organizationId) {
+  if (scope.mode === "scoped") {
+    andConditions.push({ "$intakeLocation.organizationId$": scope.organizationId });
+    if (userId) {
+      andConditions.push({ userId });
+    }
+  } else if (organizationId) {
     andConditions.push({ "$intakeLocation.organizationId$": organizationId });
   } else if (userId) {
     andConditions.push({ userId });
@@ -92,7 +125,12 @@ exports.findAll = (req, res) => {
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
       { model: Lookup, as: "initialSituation", attributes: ["id", "value"] },
       { model: ReferringOrganization, as: "organization", attributes: ["id", "name", "caseWorkerName", "phone"] },
-      { model: Location, as: "intakeLocation", attributes: ["id", "name", "address"], include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["id", "name", "address", "organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }],
+      },
     ],
   })
     .then((data) => res.send(data))
@@ -115,11 +153,19 @@ exports.findOne = (req, res) => {
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
       { model: Lookup, as: "initialSituation", attributes: ["id", "value"] },
       { model: ReferringOrganization, as: "organization", attributes: ["id", "name", "caseWorkerName", "phone"] },
-      { model: Location, as: "intakeLocation", attributes: ["id", "name", "address"], include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["id", "name", "address", "organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }],
+      },
     ],
   })
     .then((data) => {
       if (data) {
+        if (!clientAccessibleForScope(req, data)) {
+          return res.status(404).send({ message: `Client with id=${id} not found.` });
+        }
         if (data.benefits) {
           try { data.benefits = JSON.parse(data.benefits); } catch (_) {}
         }
@@ -137,13 +183,41 @@ const CLIENT_ATTRS = [
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const id = req.params.id;
+  const existing = await Client.findByPk(id, {
+    include: [
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["id", "organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id"] }],
+      },
+    ],
+  });
+  if (!existing) {
+    return res.status(404).send({ message: `Client with id=${id} not found.` });
+  }
+  if (!clientAccessibleForScope(req, existing)) {
+    return res.status(404).send({ message: `Client with id=${id} not found.` });
+  }
+
   const data = {};
   CLIENT_ATTRS.forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
   });
   if (Array.isArray(data.benefits)) data.benefits = JSON.stringify(data.benefits);
+
+  const scope = getClientTenantScope(req);
+  if (scope.mode === "scoped" && data.intakeLocationId !== undefined && data.intakeLocationId !== null) {
+    const loc = await Location.findByPk(data.intakeLocationId, { attributes: ["organizationId"] });
+    if (!loc) {
+      return res.status(400).send({ message: "Invalid intake location." });
+    }
+    if (Number(loc.organizationId) !== Number(scope.organizationId)) {
+      return res.status(403).send({ message: "Intake location must belong to your organization." });
+    }
+  }
 
   Client.update(data, { where: { id } })
     .then((num) => {
@@ -153,10 +227,23 @@ exports.update = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.uploadPhoto = (req, res) => {
+exports.uploadPhoto = async (req, res) => {
   const id = parseInt(req.params.id, 10);
   if (!req.file) {
     return res.status(400).send({ message: "No photo file uploaded." });
+  }
+  const row = await Client.findByPk(id, {
+    include: [
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id"] }],
+      },
+    ],
+  });
+  if (!row || !clientAccessibleForScope(req, row)) {
+    return res.status(404).send({ message: `Client with id=${id} not found.` });
   }
   const photoUrl = path.join("client-photos", req.file.filename).replace(/\\/g, "/");
   Client.update({ photoUrl }, { where: { id } })
@@ -172,9 +259,21 @@ exports.uploadPhoto = (req, res) => {
 
 exports.removePhoto = (req, res) => {
   const id = parseInt(req.params.id, 10);
-  Client.findByPk(id)
+  Client.findByPk(id, {
+    include: [
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id"] }],
+      },
+    ],
+  })
     .then((client) => {
       if (!client) return res.status(404).send({ message: `Client with id=${id} not found.` });
+      if (!clientAccessibleForScope(req, client)) {
+        return res.status(404).send({ message: `Client with id=${id} not found.` });
+      }
       if (client.photoUrl) {
         const filePath = path.join(clientPhotosDir, path.basename(client.photoUrl));
         if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
@@ -191,8 +290,21 @@ exports.removePhoto = (req, res) => {
     });
 };
 
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const id = req.params.id;
+  const row = await Client.findByPk(id, {
+    include: [
+      {
+        model: Location,
+        as: "intakeLocation",
+        attributes: ["organizationId"],
+        include: [{ model: db.organization, as: "organization", attributes: ["id"] }],
+      },
+    ],
+  });
+  if (!row || !clientAccessibleForScope(req, row)) {
+    return res.status(404).send({ message: `Client with id=${id} not found.` });
+  }
   Client.destroy({ where: { id } })
     .then((num) => {
       if (num === 1) res.send({ message: "Client was deleted successfully." });

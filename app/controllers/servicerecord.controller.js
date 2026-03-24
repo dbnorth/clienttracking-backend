@@ -1,14 +1,20 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
+import { getAccessibleClientOrNull } from "../authorization/clientAccess.js";
 
 const ServiceRecord = db.serviceRecord;
 const Lookup = db.lookup;
 
 const exports = {};
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
+  const clientId = req.params.clientId;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: "Client not found." });
+  }
   const data = {
-    clientId: req.params.clientId,
+    clientId,
     date: req.body.date,
     serviceProvidedId: req.body.serviceProvidedId,
   };
@@ -20,8 +26,12 @@ exports.create = (req, res) => {
     });
 };
 
-exports.findAllForClient = (req, res) => {
+exports.findAllForClient = async (req, res) => {
   const clientId = req.params.clientId;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: "Client not found." });
+  }
   ServiceRecord.findAll({
     where: { clientId },
     include: [{ model: Lookup, as: "serviceProvided", attributes: ["id", "value"] }],
@@ -30,8 +40,12 @@ exports.findAllForClient = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: `Cannot update service record with id=${id}.` });
+  }
   ServiceRecord.update(req.body, { where: { id, clientId } })
     .then((num) => {
       if (num[0] >= 1) res.send({ message: "Service record was updated successfully." });
@@ -40,8 +54,12 @@ exports.update = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: `Cannot delete service record with id=${id}.` });
+  }
   ServiceRecord.destroy({ where: { id, clientId } })
     .then((num) => {
       if (num === 1) res.send({ message: "Service record was deleted successfully." });

@@ -9,6 +9,7 @@ const ReferringOrganization = SequelizeInstance.define(
     caseWorkerName: { type: Sequelize.STRING(255) },
     phone: { type: Sequelize.STRING(50) },
     referringOrganizationTypeId: { type: Sequelize.INTEGER },
+    organizationId: { type: Sequelize.INTEGER, allowNull: true },
   },
   { tableName: "referring_organizations" }
 );

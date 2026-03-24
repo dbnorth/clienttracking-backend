@@ -1,6 +1,11 @@
 import db from "../models/index.js";
 import bcrypt from "bcryptjs";
 import logger from "../config/logger.js";
+import {
+  isSuperAdmin,
+  parseActingOrganizationHeader,
+  userListWhereForActor,
+} from "../authorization/tenantScope.js";
 
 const User = db.user;
 const Organization = db.organization;
@@ -9,7 +14,12 @@ const SALT_ROUNDS = 10;
 const exports = {};
 
 exports.findAll = (req, res) => {
+  const where = userListWhereForActor(req);
+  if (where === null) {
+    return res.send([]);
+  }
   User.findAll({
+    where,
     attributes: ["id", "fName", "lName", "email", "username", "organizationId", "role", "createdAt"],
     include: [{ model: Organization, as: "organization", attributes: ["id", "name"], required: false }],
     order: [["fName", "ASC"], ["lName", "ASC"]],
@@ -20,7 +30,16 @@ exports.findAll = (req, res) => {
 
 exports.findOne = (req, res) => {
   const id = parseInt(req.params.id, 10);
-  User.findByPk(id, {
+  const scope = userListWhereForActor(req);
+  if (!isSuperAdmin(req) && scope === null) {
+    return res.status(404).send({ message: `User with id=${id} not found.` });
+  }
+  const where = { id };
+  if (scope && Object.keys(scope).length > 0) {
+    Object.assign(where, scope);
+  }
+  User.findOne({
+    where,
     attributes: ["id", "fName", "lName", "email", "username", "organizationId"],
     include: [{ model: Organization, as: "organization", attributes: ["id", "name"], required: false }],
   })
@@ -36,7 +55,32 @@ exports.create = async (req, res) => {
   if (!fName?.trim() || !lName?.trim() || !username?.trim() || !password) {
     return res.status(400).send({ message: "First name, last name, username, and password are required." });
   }
-  if (!organizationId) {
+  let orgId = organizationId;
+  if (!isSuperAdmin(req)) {
+    const myOrg = req.user?.organizationId;
+    if (!myOrg) {
+      return res.status(400).send({ message: "Your account must be assigned to an organization to create users." });
+    }
+    orgId = myOrg;
+    if (organizationId != null && parseInt(organizationId, 10) !== myOrg) {
+      return res.status(403).send({ message: "You can only create users in your organization." });
+    }
+  } else {
+    const acting = parseActingOrganizationHeader(req);
+    if (organizationId != null && organizationId !== "") {
+      const parsed = parseInt(organizationId, 10);
+      if (Number.isNaN(parsed)) {
+        return res.status(400).send({ message: "Invalid organizationId." });
+      }
+      if (acting != null && parsed !== acting) {
+        return res.status(403).send({ message: "You can only create users in the organization you are acting as." });
+      }
+      orgId = parsed;
+    } else if (acting != null) {
+      orgId = acting;
+    }
+  }
+  if (!orgId) {
     return res.status(400).send({ message: "Organization is required." });
   }
   if (password.length < 8) {
@@ -45,8 +89,12 @@ exports.create = async (req, res) => {
   if (username.length < 3) {
     return res.status(400).send({ message: "Username must be at least 3 characters." });
   }
-  const validRoles = ["admin", "worker", "none"];
-  const roleVal = role && validRoles.includes(role) ? role : "worker";
+  const assignableRoles =
+    req.user?.role === "superadmin" ? ["superadmin", "admin", "worker", "none"] : ["admin", "worker", "none"];
+  if (role === "superadmin" && req.user?.role !== "superadmin") {
+    return res.status(403).send({ message: "Only a superadmin can assign the superadmin role." });
+  }
+  const roleVal = role && assignableRoles.includes(role) ? role : "worker";
   const emailNorm = email?.trim() ? email.trim().toLowerCase() : null;
   const usernameNorm = username.trim().toLowerCase();
   const Op = db.Sequelize.Op;
@@ -67,7 +115,7 @@ exports.create = async (req, res) => {
       email: emailNorm,
       username: usernameNorm,
       password: hash,
-      organizationId: organizationId || null,
+      organizationId: orgId || null,
       role: roleVal,
     });
     const safe = user.get({ plain: true });
@@ -99,9 +147,29 @@ exports.update = async (req, res) => {
   const usernameNorm = username.trim().toLowerCase();
   const Op = db.Sequelize.Op;
   try {
-    const existing = await User.findByPk(id, { attributes: ["id", "email", "username"] });
+    const existing = await User.findByPk(id, { attributes: ["id", "email", "username", "role", "organizationId"] });
     if (!existing) {
       return res.status(404).send({ message: "User not found." });
+    }
+    if (!isSuperAdmin(req)) {
+      const myOrg = req.user?.organizationId;
+      if (!myOrg || existing.organizationId !== myOrg) {
+        return res.status(404).send({ message: "User not found." });
+      }
+      if (organizationId != null && parseInt(organizationId, 10) !== myOrg) {
+        return res.status(403).send({ message: "You cannot reassign users to another organization." });
+      }
+    } else {
+      const acting = parseActingOrganizationHeader(req);
+      if (acting != null && existing.organizationId !== acting) {
+        return res.status(404).send({ message: "User not found." });
+      }
+      if (acting != null && parseInt(organizationId, 10) !== acting) {
+        return res.status(403).send({ message: "You cannot reassign users outside the organization you are acting as." });
+      }
+    }
+    if (existing.role === "superadmin" && req.user?.role !== "superadmin") {
+      return res.status(403).send({ message: "Only a superadmin can modify superadmin users." });
     }
     const conflictWhere = emailNorm
       ? {
@@ -118,15 +186,19 @@ exports.update = async (req, res) => {
     if (conflict) {
       return res.status(400).send({ message: "Email or username is already in use by another user." });
     }
-    const validRoles = ["admin", "worker", "none"];
+    const assignableRoles =
+      req.user?.role === "superadmin" ? ["superadmin", "admin", "worker", "none"] : ["admin", "worker", "none"];
+    if (role === "superadmin" && req.user?.role !== "superadmin") {
+      return res.status(403).send({ message: "Only a superadmin can assign the superadmin role." });
+    }
     const updateData = {
       fName: fName.trim(),
       lName: lName.trim(),
       email: emailNorm,
       username: usernameNorm,
-      organizationId: organizationId || null,
+      organizationId: isSuperAdmin(req) ? organizationId || null : req.user.organizationId,
     };
-    if (role && validRoles.includes(role)) updateData.role = role;
+    if (role && assignableRoles.includes(role)) updateData.role = role;
     if (password && password.trim()) {
       updateData.password = await bcrypt.hash(password.trim(), SALT_ROUNDS);
     }
@@ -140,6 +212,42 @@ exports.update = async (req, res) => {
   } catch (err) {
     logger.error(`User update error: ${err.message}`);
     res.status(500).send({ message: err.message || "Could not update user." });
+  }
+};
+
+exports.delete = async (req, res) => {
+  const id = parseInt(req.params.id, 10);
+  if (!id) {
+    return res.status(400).send({ message: "Invalid user id." });
+  }
+  if (req.user?.id === id) {
+    return res.status(400).send({ message: "You cannot delete your own account." });
+  }
+  try {
+    const existing = await User.findByPk(id, { attributes: ["id", "role", "organizationId"] });
+    if (!existing) {
+      return res.status(404).send({ message: `User with id=${id} not found.` });
+    }
+    if (!isSuperAdmin(req)) {
+      const myOrg = req.user?.organizationId;
+      if (!myOrg || existing.organizationId !== myOrg) {
+        return res.status(404).send({ message: `User with id=${id} not found.` });
+      }
+    } else {
+      const acting = parseActingOrganizationHeader(req);
+      if (acting != null && existing.organizationId !== acting) {
+        return res.status(404).send({ message: `User with id=${id} not found.` });
+      }
+    }
+    if (existing.role === "superadmin" && req.user?.role !== "superadmin") {
+      return res.status(403).send({ message: "Only a superadmin can delete superadmin users." });
+    }
+    await User.destroy({ where: { id } });
+    logger.info(`User deleted: id=${id}`);
+    res.send({ message: "User was deleted successfully." });
+  } catch (err) {
+    logger.error(`User delete error: ${err.message}`);
+    res.status(500).send({ message: err.message || "Could not delete user." });
   }
 };
 

@@ -1,5 +1,7 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
+import { getAccessibleClientOrNull } from "../authorization/clientAccess.js";
+import { getClientTenantScope } from "../authorization/tenantScope.js";
 
 const Encounter = db.encounter;
 const User = db.user;
@@ -10,6 +12,11 @@ const Lookup = db.lookup;
 const exports = {};
 
 exports.findAll = (req, res) => {
+  const scope = getClientTenantScope(req);
+  if (scope.mode === "none") {
+    return res.send([]);
+  }
+
   const clientId = req.query.clientId ? parseInt(req.query.clientId, 10) : null;
   const date = req.query.date?.trim();
   const userId = req.query.userId ? parseInt(req.query.userId, 10) : null;
@@ -23,7 +30,20 @@ exports.findAll = (req, res) => {
     attributes: ["id", "firstName", "lastName", "middleName", "phone"],
     required: true,
   };
-  if (organizationId) {
+  if (scope.mode === "scoped") {
+    clientInclude.include = [
+      {
+        model: Location,
+        as: "intakeLocation",
+        where: { organizationId: scope.organizationId },
+        required: true,
+        attributes: [],
+      },
+    ];
+    if (userId) {
+      clientInclude.where = { userId };
+    }
+  } else if (organizationId) {
     clientInclude.include = [
       { model: Location, as: "intakeLocation", where: { organizationId }, required: true, attributes: [] },
     ];
@@ -44,9 +64,14 @@ exports.findAll = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
+  const clientId = parseInt(req.params.clientId, 10);
+  const allowed = await getAccessibleClientOrNull(req, clientId);
+  if (!allowed) {
+    return res.status(404).send({ message: "Client not found." });
+  }
   const data = {
-    clientId: parseInt(req.params.clientId, 10),
+    clientId,
     date: req.body.date,
     userId: req.body.userId,
     encounterTypeId: req.body.encounterTypeId || null,
@@ -63,8 +88,12 @@ exports.create = (req, res) => {
     });
 };
 
-exports.findAllForClient = (req, res) => {
+exports.findAllForClient = async (req, res) => {
   const clientId = req.params.clientId;
+  const allowed = await getAccessibleClientOrNull(req, clientId);
+  if (!allowed) {
+    return res.status(404).send({ message: "Client not found." });
+  }
   Encounter.findAll({
     where: { clientId },
     include: [
@@ -77,8 +106,12 @@ exports.findAllForClient = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.findOne = (req, res) => {
+exports.findOne = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowed = await getAccessibleClientOrNull(req, clientId);
+  if (!allowed) {
+    return res.status(404).send({ message: `Encounter with id=${id} not found.` });
+  }
   Encounter.findOne({
     where: { id, clientId },
     include: [
@@ -106,8 +139,12 @@ exports.findOne = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowed = await getAccessibleClientOrNull(req, clientId);
+  if (!allowed) {
+    return res.status(404).send({ message: `Encounter with id=${id} not found.` });
+  }
   const data = {};
   ["date", "time", "userId", "encounterTypeId", "notes"].forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
@@ -120,8 +157,12 @@ exports.update = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowed = await getAccessibleClientOrNull(req, clientId);
+  if (!allowed) {
+    return res.status(404).send({ message: `Encounter with id=${id} not found.` });
+  }
   Encounter.destroy({ where: { id, clientId } })
     .then((num) => {
       if (num === 1) res.send({ message: "Encounter was deleted successfully." });

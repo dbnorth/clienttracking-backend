@@ -7,6 +7,7 @@ const Lookup = SequelizeInstance.define("lookup", {
   value: { type: Sequelize.STRING(255), allowNull: false },
   sortOrder: { type: Sequelize.INTEGER, defaultValue: 0 },
   status: { type: Sequelize.STRING(20), defaultValue: "Active" },
+  organizationId: { type: Sequelize.INTEGER, allowNull: true },
 });
 
 export default Lookup;
