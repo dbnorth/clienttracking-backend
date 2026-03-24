@@ -26,6 +26,7 @@ exports.findAll = (req, res) => {
   const date = req.query.date?.trim();
   const status = req.query.status?.trim().toLowerCase();
   const userId = req.query.userId ? parseInt(req.query.userId, 10) : null;
+  const organizationId = req.query.organizationId ? parseInt(req.query.organizationId, 10) : null;
   const encounterId = req.query.encounterId ? parseInt(req.query.encounterId, 10) : null;
   const Op = db.Sequelize.Op;
   const where = {};
@@ -51,16 +52,26 @@ exports.findAll = (req, res) => {
     andParts.push({ [Op.or]: dateConditions });
   }
   if (andParts.length > 0) where[Op.and] = andParts;
+  const clientInclude = {
+    model: db.client,
+    as: "client",
+    attributes: ["id", "firstName", "lastName", "middleName", "phone"],
+    required: true,
+  };
+  if (organizationId) {
+    clientInclude.include = [
+      { model: Location, as: "intakeLocation", where: { organizationId }, required: true, attributes: [] },
+    ];
+  } else if (userId) {
+    clientInclude.where = { userId };
+  }
   const include = [
-    { model: db.client, as: "client", attributes: ["id", "firstName", "lastName", "middleName", "phone"], required: true },
+    clientInclude,
     { model: Location, as: "location", attributes: ["id", "name", "address"], required: false, include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
     { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
     { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
     { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
   ];
-  if (userId) {
-    include[0].where = { userId };
-  }
   ClientService.findAll({
     where,
     include,
@@ -182,6 +193,7 @@ exports.findAllForClient = (req, res) => {
   ClientService.findAll({
     where: { clientId },
     include: [
+      { model: db.client, as: "client", attributes: ["id", "firstName", "lastName", "middleName", "phone"] },
       { model: Location, as: "location", attributes: ["id", "name", "address"], include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
       { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
       { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
