@@ -35,6 +35,7 @@ const Client = SequelizeInstance.define("client", {
   statusChangeDate: { type: Sequelize.DATEONLY },
   dateOfFirstContact: { type: Sequelize.DATEONLY },
   userId: { type: Sequelize.INTEGER },
+  photoUrl: { type: Sequelize.STRING(500) },
 });
 
 export default Client;
