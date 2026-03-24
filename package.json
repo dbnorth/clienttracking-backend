@@ -11,6 +11,8 @@
     "add-status": "node app/scripts/addStatusColumn.js",
     "migrate-ref-orgs": "node app/scripts/migrateToReferringOrgs.js",
     "add-ref-org-type": "node app/scripts/addReferringOrgTypeColumn.js",
+    "add-ref-org-organization-id": "node app/scripts/addReferringOrgOrganizationIdColumn.js",
+    "add-lookup-organization-id": "node app/scripts/addLookupOrganizationIdColumn.js",
     "add-referrals": "node app/scripts/addReferralsTable.js",
     "add-org-contact": "node app/scripts/addOrganizationContactFields.js",
     "add-org-logo": "node app/scripts/addOrganizationLogo.js",

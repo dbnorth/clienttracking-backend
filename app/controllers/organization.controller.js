@@ -1,6 +1,7 @@
 import db from "../models/index.js";
 import path from "path";
 import fs from "fs";
+import { canAccessOrganizationRecord, isSuperAdmin, organizationTableListWhere } from "../authorization/tenantScope.js";
 
 const Organization = db.organization;
 const orgLogosDir = "uploads/organization-logos";
@@ -8,13 +9,20 @@ const orgLogosDir = "uploads/organization-logos";
 const exports = {};
 
 exports.findAll = (req, res) => {
-  Organization.findAll({ order: [["name", "ASC"]] })
+  const where = organizationTableListWhere(req);
+  if (!isSuperAdmin(req) && where === null) {
+    return res.send([]);
+  }
+  Organization.findAll({ where: where || {}, order: [["name", "ASC"]] })
     .then((data) => res.send(data))
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
 exports.findOne = (req, res) => {
   const id = req.params.id;
+  if (!canAccessOrganizationRecord(req, id)) {
+    return res.status(404).send({ message: `Organization with id=${id} not found.` });
+  }
   Organization.findByPk(id)
     .then((data) => {
       if (data) res.send(data);
@@ -31,6 +39,9 @@ exports.create = (req, res) => {
 
 exports.update = (req, res) => {
   const id = req.params.id;
+  if (!canAccessOrganizationRecord(req, id)) {
+    return res.status(404).send({ message: `Cannot update organization with id=${id}.` });
+  }
   Organization.update(req.body, { where: { id } })
     .then((num) => {
       if (num[0] >= 1) res.send({ message: "Organization was updated successfully." });
@@ -41,6 +52,9 @@ exports.update = (req, res) => {
 
 exports.uploadLogo = (req, res) => {
   const id = req.params.id;
+  if (!canAccessOrganizationRecord(req, id)) {
+    return res.status(404).send({ message: `Organization with id=${id} not found.` });
+  }
   if (!req.file) {
     return res.status(400).send({ message: "No logo file uploaded." });
   }
@@ -55,6 +69,9 @@ exports.uploadLogo = (req, res) => {
 
 exports.removeLogo = (req, res) => {
   const id = req.params.id;
+  if (!canAccessOrganizationRecord(req, id)) {
+    return res.status(404).send({ message: `Organization with id=${id} not found.` });
+  }
   Organization.findByPk(id)
     .then((org) => {
       if (!org) return res.status(404).send({ message: `Organization with id=${id} not found.` });
@@ -73,6 +90,9 @@ exports.removeLogo = (req, res) => {
 
 exports.delete = (req, res) => {
   const id = req.params.id;
+  if (!canAccessOrganizationRecord(req, id)) {
+    return res.status(404).send({ message: `Cannot delete organization with id=${id}.` });
+  }
   Organization.destroy({ where: { id } })
     .then((num) => {
       if (num === 1) res.send({ message: "Organization was deleted successfully." });

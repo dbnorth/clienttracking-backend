@@ -1,5 +1,7 @@
 import db from "../models/index.js";
 import logger from "../config/logger.js";
+import { getAccessibleClientOrNull } from "../authorization/clientAccess.js";
+import { getClientTenantScope } from "../authorization/tenantScope.js";
 
 const ClientService = db.clientService;
 const Location = db.location;
@@ -21,6 +23,11 @@ const ATTRS = [
 ];
 
 exports.findAll = (req, res) => {
+  const scope = getClientTenantScope(req);
+  if (scope.mode === "none") {
+    return res.send([]);
+  }
+
   const clientId = req.query.clientId ? parseInt(req.query.clientId, 10) : null;
   const serviceProvidedId = req.query.serviceProvidedId ? parseInt(req.query.serviceProvidedId, 10) : null;
   const date = req.query.date?.trim();
@@ -58,7 +65,20 @@ exports.findAll = (req, res) => {
     attributes: ["id", "firstName", "lastName", "middleName", "phone"],
     required: true,
   };
-  if (organizationId) {
+  if (scope.mode === "scoped") {
+    clientInclude.include = [
+      {
+        model: Location,
+        as: "intakeLocation",
+        where: { organizationId: scope.organizationId },
+        required: true,
+        attributes: [],
+      },
+    ];
+    if (userId) {
+      clientInclude.where = { userId };
+    }
+  } else if (organizationId) {
     clientInclude.include = [
       { model: Location, as: "intakeLocation", where: { organizationId }, required: true, attributes: [] },
     ];
@@ -89,6 +109,10 @@ exports.createBulk = async (req, res) => {
   const encounterTime = time || `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
   if (!clientId || !Array.isArray(items) || items.length === 0) {
     return res.status(400).send({ message: "clientId and items array are required." });
+  }
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: "Client not found." });
   }
   const uid = userId ? parseInt(userId, 10) : null;
   if (!uid) {
@@ -170,7 +194,7 @@ exports.createBulk = async (req, res) => {
   }
 };
 
-exports.create = (req, res) => {
+exports.create = async (req, res) => {
   const data = {};
   ATTRS.forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
@@ -178,6 +202,10 @@ exports.create = (req, res) => {
   data.clientId = parseInt(req.params.clientId, 10) || data.clientId;
   if (!data.clientId) {
     return res.status(400).send({ message: "clientId is required." });
+  }
+  const allowedClient = await getAccessibleClientOrNull(req, data.clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: "Client not found." });
   }
   if (!data.status) data.status = "requested";
   ClientService.create(data)
@@ -188,8 +216,12 @@ exports.create = (req, res) => {
     });
 };
 
-exports.findAllForClient = (req, res) => {
+exports.findAllForClient = async (req, res) => {
   const clientId = req.params.clientId;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: "Client not found." });
+  }
   ClientService.findAll({
     where: { clientId },
     include: [
@@ -205,8 +237,12 @@ exports.findAllForClient = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.findOne = (req, res) => {
+exports.findOne = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: `Client service with id=${id} not found.` });
+  }
   ClientService.findOne({
     where: { id, clientId },
     include: [
@@ -223,8 +259,12 @@ exports.findOne = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.update = (req, res) => {
+exports.update = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: `Client service with id=${id} not found.` });
+  }
   const data = {};
   ATTRS.forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
@@ -237,8 +277,12 @@ exports.update = (req, res) => {
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
-exports.delete = (req, res) => {
+exports.delete = async (req, res) => {
   const { clientId, id } = req.params;
+  const allowedClient = await getAccessibleClientOrNull(req, clientId);
+  if (!allowedClient) {
+    return res.status(404).send({ message: `Cannot delete client service with id=${id}.` });
+  }
   ClientService.destroy({ where: { id, clientId } })
     .then((num) => {
       if (num === 1) res.send({ message: "Client service was deleted successfully." });

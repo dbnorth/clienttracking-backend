@@ -51,54 +51,6 @@ const createOrReuseSession = async (user, res) => {
 
 const exports = {};
 
-exports.register = async (req, res) => {
-  const { fName, lName, email, username, password, organizationId } = req.body;
-
-  if (!fName?.trim() || !lName?.trim() || !email?.trim() || !username?.trim() || !password) {
-    return res.status(400).send({ message: "All fields are required." });
-  }
-  if (password.length < 8) {
-    return res.status(400).send({ message: "Password must be at least 8 characters." });
-  }
-  if (username.length < 3) {
-    return res.status(400).send({ message: "Username must be at least 3 characters." });
-  }
-
-  const emailNorm = email.trim().toLowerCase();
-  const usernameNorm = username.trim().toLowerCase();
-
-  try {
-    const conflict = await User.findOne({
-      where: {
-        [Op.or]: [{ email: emailNorm }, { username: usernameNorm }],
-      },
-      attributes: ["id"],
-    });
-    if (conflict) {
-      return res.status(400).send({ message: "Email or username is already in use." });
-    }
-
-    const hash = await bcrypt.hash(password, SALT_ROUNDS);
-    const user = await User.create({
-      fName: fName.trim(),
-      lName: lName.trim(),
-      email: emailNorm,
-      username: usernameNorm,
-      password: hash,
-      organizationId: organizationId || null,
-      role: "none",
-    });
-
-    logger.info(`User registered: ${user.username}`);
-    const safe = user.get({ plain: true });
-    delete safe.password;
-    res.status(201).send(safe);
-  } catch (err) {
-    logger.error(`Register error: ${err.message}`);
-    res.status(500).send({ message: err.message || "Could not create user." });
-  }
-};
-
 exports.login = async (req, res) => {
   const { username, password } = req.body;
 
