@@ -118,6 +118,10 @@ exports.createBulk = async (req, res) => {
   if (!uid) {
     return res.status(400).send({ message: "userId is required." });
   }
+  const etid = encounterTypeId != null && encounterTypeId !== "" ? parseInt(encounterTypeId, 10) : null;
+  if (!etid || Number.isNaN(etid)) {
+    return res.status(400).send({ message: "Encounter type is required." });
+  }
   const byService = new Map();
   const toUpdateIdsSet = new Set();
   const toCancelIdsSet = new Set();
@@ -152,14 +156,16 @@ exports.createBulk = async (req, res) => {
       userId: uid,
       date: today,
       time: encounterTime,
-      encounterTypeId: encounterTypeId || null,
+      encounterTypeId: etid,
       notes: notes || null,
     });
     const encounterId = encounter.id;
     const created = [];
     if (toCreate.length > 0) {
+      const locationId = allowedClient.intakeLocationId ?? null;
       const clientServiceRecords = toCreate.map((r) => ({
         clientId,
+        locationId,
         serviceProvidedId: r.serviceProvidedId,
         status: r.provided ? "provided" : "requested",
         requestedDate: r.requested ? today : null,
@@ -208,6 +214,9 @@ exports.create = async (req, res) => {
     return res.status(404).send({ message: "Client not found." });
   }
   if (!data.status) data.status = "requested";
+  if (data.locationId == null || data.locationId === "") {
+    data.locationId = allowedClient.intakeLocationId ?? null;
+  }
   ClientService.create(data)
     .then((result) => res.send(result))
     .catch((err) => {
