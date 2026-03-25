@@ -134,7 +134,7 @@ exports.update = async (req, res) => {
   if (!fName?.trim() || !lName?.trim() || !username?.trim()) {
     return res.status(400).send({ message: "First name, last name, and username are required." });
   }
-  if (!organizationId) {
+  if (!isSuperAdmin(req) && !organizationId) {
     return res.status(400).send({ message: "Organization is required." });
   }
   if (username.length < 3) {
@@ -164,7 +164,12 @@ exports.update = async (req, res) => {
       if (acting != null && existing.organizationId !== acting) {
         return res.status(404).send({ message: "User not found." });
       }
-      if (acting != null && parseInt(organizationId, 10) !== acting) {
+      if (
+        acting != null &&
+        organizationId != null &&
+        organizationId !== "" &&
+        parseInt(organizationId, 10) !== acting
+      ) {
         return res.status(403).send({ message: "You cannot reassign users outside the organization you are acting as." });
       }
     }
@@ -191,12 +196,28 @@ exports.update = async (req, res) => {
     if (role === "superadmin" && req.user?.role !== "superadmin") {
       return res.status(403).send({ message: "Only a superadmin can assign the superadmin role." });
     }
+    let resolvedOrganizationId;
+    if (isSuperAdmin(req)) {
+      if (organizationId === undefined) {
+        resolvedOrganizationId = existing.organizationId;
+      } else if (organizationId === null || organizationId === "") {
+        resolvedOrganizationId = null;
+      } else {
+        const p = parseInt(organizationId, 10);
+        if (Number.isNaN(p)) {
+          return res.status(400).send({ message: "Invalid organizationId." });
+        }
+        resolvedOrganizationId = p;
+      }
+    } else {
+      resolvedOrganizationId = req.user.organizationId;
+    }
     const updateData = {
       fName: fName.trim(),
       lName: lName.trim(),
       email: emailNorm,
       username: usernameNorm,
-      organizationId: isSuperAdmin(req) ? organizationId || null : req.user.organizationId,
+      organizationId: resolvedOrganizationId,
     };
     if (role && assignableRoles.includes(role)) updateData.role = role;
     if (password && password.trim()) {
