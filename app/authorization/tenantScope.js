@@ -40,15 +40,17 @@ export const orgFkRowWhere = (req, idParam) => {
   return { id: idNum };
 };
 
-/** organizations table: list filter by primary key id. */
+/**
+ * organizations table: GET /organizations list filter.
+ * Superadmin always receives all rows — the acting-org header scopes tenant data (clients, etc.),
+ * not the catalog of organizations used to pick “act as” or manage orgs.
+ */
 export const organizationTableListWhere = (req) => {
   if (!isSuperAdmin(req)) {
     const oid = req.user?.organizationId;
     if (oid == null || oid === "") return null;
     return { id: oid };
   }
-  const acting = parseActingOrganizationHeader(req);
-  if (acting != null) return { id: acting };
   return {};
 };
 
