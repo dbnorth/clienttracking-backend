@@ -68,13 +68,19 @@ export const STARTER_SET_LOOKUP_TYPES = new Set([
   "gender",
   "initial_situation",
   "housing_type",
+  "housing_location",
   "benefit",
   "encounter_type",
 ]);
 
-export const starterSetLookupTemplates = LEGACY_GLOBAL_LOOKUP_SEED.filter((r) =>
-  STARTER_SET_LOOKUP_TYPES.has(r.type)
-);
+/** Starter set only adds "Address" for housing locations (not Downtown / sides). */
+const HOUSING_LOCATION_STARTER_VALUES = new Set(["Address"]);
+
+export const starterSetLookupTemplates = LEGACY_GLOBAL_LOOKUP_SEED.filter((r) => {
+  if (!STARTER_SET_LOOKUP_TYPES.has(r.type)) return false;
+  if (r.type === "housing_location" && !HOUSING_LOCATION_STARTER_VALUES.has(r.value)) return false;
+  return true;
+});
 
 /** Sample referring org from original seed (per tenant organization). */
 export const starterSetReferringOrganizationTemplates = [

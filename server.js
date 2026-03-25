@@ -10,7 +10,27 @@ import logger from "./app/config/logger.js";
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 
-db.sequelize.sync();
+/**
+ * Default `sync()` only creates missing tables — it does NOT add new columns to existing tables.
+ * Set SEQUELIZE_SYNC_ALTER=true to run `sync({ alter: true })`, which aligns tables with models
+ * (adds columns, may change column types). Use with care in production; prefer migrations for prod.
+ */
+const syncOptions =
+  process.env.SEQUELIZE_SYNC_ALTER === "true" || process.env.SEQUELIZE_SYNC_ALTER === "1"
+    ? { alter: true }
+    : {};
+
+db.sequelize
+  .sync(syncOptions)
+  .then(() => {
+    if (syncOptions.alter) {
+      logger.info("Database sync completed with alter: true (schema may have been updated).");
+    }
+  })
+  .catch((err) => {
+    logger.error(`Database sync failed: ${err.message}`);
+    process.exit(1);
+  });
 
 const app = express();
 
