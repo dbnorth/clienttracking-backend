@@ -2,7 +2,6 @@ import { Router } from "express";
 
 import AuthRoutes from "./auth.routes.js";
 import ClientRoutes from "./client.routes.js";
-import ServiceRecordRoutes from "./servicerecord.routes.js";
 import EncounterRoutes from "./encounter.routes.js";
 import EncounterListRoutes from "./encounter-list.routes.js";
 import ClientServiceRoutes from "./clientservice.routes.js";
@@ -19,7 +18,6 @@ const router = Router();
 router.use("/", AuthRoutes);
 router.use("/users", UserRoutes);
 router.use("/clients", ClientRoutes);
-router.use("/clients", ServiceRecordRoutes);
 router.use("/clients", EncounterRoutes);
 router.use("/encounters", EncounterListRoutes);
 router.use("/clients", ClientServiceRoutes);

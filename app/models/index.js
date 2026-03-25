@@ -7,7 +7,6 @@ import Lookup from "./lookup.model.js";
 import ReferringOrganization from "./referringOrganization.model.js";
 import Organization from "./organization.model.js";
 import Client from "./client.model.js";
-import ServiceRecord from "./servicerecord.model.js";
 import Encounter from "./encounter.model.js";
 import ClientService from "./clientservice.model.js";
 import Referral from "./referral.model.js";
@@ -23,7 +22,6 @@ db.lookup = Lookup;
 db.referringOrganization = ReferringOrganization;
 db.organization = Organization;
 db.client = Client;
-db.serviceRecord = ServiceRecord;
 db.encounter = Encounter;
 db.clientService = ClientService;
 db.referral = Referral;
@@ -56,10 +54,6 @@ db.referringOrganization.belongsTo(db.organization, {
   foreignKey: "organizationId",
   onDelete: "CASCADE",
 });
-
-db.client.hasMany(db.serviceRecord, { foreignKey: "clientId", onDelete: "CASCADE" });
-db.serviceRecord.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
-db.serviceRecord.belongsTo(db.lookup, { as: "serviceProvided", foreignKey: "serviceProvidedId" });
 
 db.client.hasMany(db.encounter, { foreignKey: "clientId", onDelete: "CASCADE" });
 db.encounter.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });

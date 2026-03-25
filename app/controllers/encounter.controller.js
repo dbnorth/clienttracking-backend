@@ -70,11 +70,18 @@ exports.create = async (req, res) => {
   if (!allowed) {
     return res.status(404).send({ message: "Client not found." });
   }
+  const etid =
+    req.body.encounterTypeId != null && req.body.encounterTypeId !== ""
+      ? parseInt(req.body.encounterTypeId, 10)
+      : null;
+  if (!etid || Number.isNaN(etid)) {
+    return res.status(400).send({ message: "Encounter type is required." });
+  }
   const data = {
     clientId,
     date: req.body.date,
     userId: req.body.userId,
-    encounterTypeId: req.body.encounterTypeId || null,
+    encounterTypeId: etid,
     notes: req.body.notes || null,
   };
   if (!data.userId) {
