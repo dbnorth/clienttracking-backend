@@ -102,6 +102,7 @@ exports.findAll = (req, res) => {
     if (name) {
       orConditions.push(
         { firstName: { [Op.like]: `%${name}%` } },
+        { nickname: { [Op.like]: `%${name}%` } },
         { lastName: { [Op.like]: `%${name}%` } },
         { middleName: { [Op.like]: `%${name}%` } }
       );
@@ -176,10 +177,10 @@ exports.findOne = (req, res) => {
 };
 
 const CLIENT_ATTRS = [
-  "firstName", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
+  "firstName", "nickname", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
   "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugOfChoiceId", "drugMethod", "housingTypeId", "housingRedGreen",
-  "housingLocationId", "housingStreet", "housingCity", "housingState", "housingZip",
+  "housingLocationId", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
 
