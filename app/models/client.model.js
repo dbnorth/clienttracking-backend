@@ -4,6 +4,7 @@ import SequelizeInstance from "../config/sequelizeInstance.js";
 const Client = SequelizeInstance.define("client", {
   id: { type: Sequelize.INTEGER, autoIncrement: true, primaryKey: true },
   firstName: { type: Sequelize.STRING(100) },
+  nickname: { type: Sequelize.STRING(100) },
   middleName: { type: Sequelize.STRING(100) },
   lastName: { type: Sequelize.STRING(100) },
   suffix: { type: Sequelize.STRING(20) },
@@ -27,6 +28,7 @@ const Client = SequelizeInstance.define("client", {
   housingRedGreen: { type: Sequelize.STRING(20) },
   housingLocationId: { type: Sequelize.INTEGER },
   housingStreet: { type: Sequelize.STRING(255) },
+  housingApt: { type: Sequelize.STRING(50) },
   housingCity: { type: Sequelize.STRING(100) },
   housingState: { type: Sequelize.STRING(50) },
   housingZip: { type: Sequelize.STRING(20) },

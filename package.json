@@ -28,6 +28,8 @@
     "add-client-gender": "node app/scripts/addClientGenderId.js",
     "add-client-initial-situation": "node app/scripts/addClientInitialSituationId.js",
     "add-client-parent-phone": "node app/scripts/addClientParentPhone.js",
+    "add-client-housing-apt": "node app/scripts/addClientHousingApt.js",
+    "add-client-nickname": "node app/scripts/addClientNickname.js",
     "add-encounters": "node app/scripts/addEncountersTable.js",
     "add-client-services": "node app/scripts/addClientServicesTable.js",
     "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js"
