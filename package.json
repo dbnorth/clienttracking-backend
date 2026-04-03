@@ -32,7 +32,8 @@
     "add-client-nickname": "node app/scripts/addClientNickname.js",
     "add-encounters": "node app/scripts/addEncountersTable.js",
     "add-client-services": "node app/scripts/addClientServicesTable.js",
-    "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js"
+    "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js",
+    "add-client-documents": "node app/scripts/addClientDocumentsTable.js"
   },
   "keywords": [
     "node.js",

@@ -11,6 +11,7 @@ import Encounter from "./encounter.model.js";
 import ClientService from "./clientservice.model.js";
 import Referral from "./referral.model.js";
 import Location from "./location.model.js";
+import ClientDocument from "./clientDocument.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -26,6 +27,7 @@ db.encounter = Encounter;
 db.clientService = ClientService;
 db.referral = Referral;
 db.location = Location;
+db.clientDocument = ClientDocument;
 
 db.user.hasMany(db.session, { foreignKey: { allowNull: false }, onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: { allowNull: false }, onDelete: "CASCADE" });
@@ -46,6 +48,9 @@ db.client.belongsTo(db.lookup, { as: "gender", foreignKey: "genderId" });
 db.client.belongsTo(db.lookup, { as: "initialSituation", foreignKey: "initialSituationId" });
 db.client.belongsTo(db.referringOrganization, { as: "organization", foreignKey: "organizationId" });
 db.client.belongsTo(db.location, { as: "intakeLocation", foreignKey: "intakeLocationId" });
+
+db.client.hasMany(db.clientDocument, { foreignKey: "clientId", onDelete: "CASCADE" });
+db.clientDocument.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
 
 db.referringOrganization.belongsTo(db.lookup, { as: "referringOrganizationType", foreignKey: "referringOrganizationTypeId" });
 db.organization.hasMany(db.referringOrganization, { foreignKey: "organizationId", onDelete: "CASCADE" });
