@@ -39,6 +39,19 @@ async function seed() {
     });
     if (created) console.log(`Added '${item.value}' to ${item.type}.`);
   }
+  const daytimeLocationValues = [
+    { type: "daytime_location", value: "Downtown" },
+    { type: "daytime_location", value: "Southwest" },
+    { type: "daytime_location", value: "NW Expressway" },
+    { type: "daytime_location", value: "Other" },
+  ];
+  for (const item of daytimeLocationValues) {
+    const [, created] = await Lookup.findOrCreate({
+      where: { type: item.type, value: item.value },
+      defaults: { ...item, sortOrder: daytimeLocationValues.indexOf(item) + 1, status: "Active" },
+    });
+    if (created) console.log(`Added '${item.value}' to ${item.type}.`);
+  }
   const raceEthnicityValues = [
     { type: "race", value: "American Indian or Alaska Native" },
     { type: "race", value: "Asian" },

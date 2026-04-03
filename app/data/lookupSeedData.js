@@ -44,6 +44,10 @@ export const LEGACY_GLOBAL_LOOKUP_SEED = [
   { type: "housing_location", value: "North Side", sortOrder: 3, status: "Active" },
   { type: "housing_location", value: "South Side", sortOrder: 4, status: "Active" },
   { type: "housing_location", value: "East Side", sortOrder: 5, status: "Active" },
+  { type: "daytime_location", value: "Downtown", sortOrder: 1, status: "Active" },
+  { type: "daytime_location", value: "Southwest", sortOrder: 2, status: "Active" },
+  { type: "daytime_location", value: "NW Expressway", sortOrder: 3, status: "Active" },
+  { type: "daytime_location", value: "Other", sortOrder: 4, status: "Active" },
   { type: "benefit", value: "Sooner Care", sortOrder: 1, status: "Active" },
   { type: "benefit", value: "Food Stamps", sortOrder: 2, status: "Active" },
   { type: "benefit", value: "SSI", sortOrder: 3, status: "Active" },
@@ -69,6 +73,7 @@ export const STARTER_SET_LOOKUP_TYPES = new Set([
   "initial_situation",
   "housing_type",
   "housing_location",
+  "daytime_location",
   "benefit",
   "encounter_type",
 ]);

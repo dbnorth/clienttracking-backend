@@ -33,7 +33,8 @@
     "add-encounters": "node app/scripts/addEncountersTable.js",
     "add-client-services": "node app/scripts/addClientServicesTable.js",
     "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js",
-    "add-client-documents": "node app/scripts/addClientDocumentsTable.js"
+    "add-client-documents": "node app/scripts/addClientDocumentsTable.js",
+    "add-client-daytime-location": "node app/scripts/addClientDaytimeLocation.js"
   },
   "keywords": [
     "node.js",
