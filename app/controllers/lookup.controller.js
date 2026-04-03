@@ -18,6 +18,23 @@ const Op = db.Sequelize.Op;
 
 const listInclude = [{ model: Organization, as: "organization", attributes: ["id", "name"], required: false }];
 
+/**
+ * When lookups are listed across all organizations (superadmin, no acting-org header),
+ * the same display value (e.g. "Male") can exist once per org — duplicate v-select labels.
+ * Keep the first row per trimmed case-insensitive value (query order: sortOrder, value).
+ */
+const dedupeLookupsByDisplayValue = (rows) => {
+  const seen = new Set();
+  const out = [];
+  for (const row of rows) {
+    const key = String(row.value ?? "").trim().toLowerCase();
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(row);
+  }
+  return out;
+};
+
 const listScopeForFind = (req) => {
   if (!isSuperAdmin(req)) {
     return sessionTenantScopeWhere(req);
@@ -49,24 +66,55 @@ const canSeedStarterSetForOrg = (req, orgId) => {
   return true;
 };
 
+/** Optional ?organizationId= on GET /lookups/type/:type — workers only their org; superadmin with acting header only that org; bare superadmin may request any org. */
+const canQueryLookupOrganizationId = (req, orgId) => {
+  if (orgId == null || Number.isNaN(orgId)) return false;
+  if (!isSuperAdmin(req)) {
+    return Number(req.user?.organizationId) === Number(orgId);
+  }
+  const acting = parseActingOrganizationHeader(req);
+  if (acting != null) {
+    return Number(orgId) === Number(acting);
+  }
+  return true;
+};
+
 const exports = {};
 
 exports.findByType = (req, res) => {
   const type = req.params.type;
+  const qOrg = req.query.organizationId;
+  const requestedOrgId =
+    qOrg != null && String(qOrg).trim() !== "" ? parseInt(String(qOrg), 10) : NaN;
+  const hasExplicitOrg = !Number.isNaN(requestedOrgId);
+
+  let listScope;
+  if (hasExplicitOrg) {
+    if (!canQueryLookupOrganizationId(req, requestedOrgId)) {
+      return res.status(403).send({ message: "Not allowed to load lookups for that organization." });
+    }
+    listScope = { organizationId: requestedOrgId };
+  } else {
+    listScope = listScopeForFind(req);
+    if (!isSuperAdmin(req) && listScope === null) {
+      return res.send([]);
+    }
+  }
+
   const where = {
     type,
     [Op.or]: [{ status: "Active" }, { status: null }],
   };
-  const listScope = listScopeForFind(req);
-  if (!isSuperAdmin(req) && listScope === null) {
-    return res.send([]);
-  }
   Object.assign(where, listScope || {});
   Lookup.findAll({
     where,
-    order: [["sortOrder", "ASC"], ["value", "ASC"]],
+    order: [["sortOrder", "ASC"], ["value", "ASC"], ["id", "ASC"]],
   })
-    .then((data) => res.send(data))
+    .then((data) => {
+      const rows = data.map((r) => (typeof r.toJSON === "function" ? r.toJSON() : r));
+      const scopedToOneOrg = listScope && Object.keys(listScope).length > 0;
+      res.send(scopedToOneOrg ? rows : dedupeLookupsByDisplayValue(rows));
+    })
     .catch((err) => res.status(500).send({ message: err.message }));
 };
 
