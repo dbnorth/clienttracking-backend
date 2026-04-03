@@ -54,3 +54,47 @@ export const uploadClientPhoto = multer({
   fileFilter,
   limits: { fileSize: 2 * 1024 * 1024 }, // 2MB
 });
+
+const clientDocsDir = "uploads/client-documents";
+const clientDocStorage = multer.diskStorage({
+  destination: (_req, _file, cb) => {
+    fs.mkdirSync(clientDocsDir, { recursive: true });
+    cb(null, clientDocsDir);
+  },
+  filename: (req, file, cb) => {
+    const base = `${req.params.clientId}-${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+    const lower = (file.originalname || "").toLowerCase();
+    let ext = ".bin";
+    if (lower.endsWith(".png")) ext = ".png";
+    else if (lower.endsWith(".jpg") || lower.endsWith(".jpeg")) ext = ".jpg";
+    else if (lower.endsWith(".heic")) ext = ".heic";
+    else if (lower.endsWith(".heif")) ext = ".heif";
+    else if (lower.endsWith(".pdf")) ext = ".pdf";
+    cb(null, `${base}${ext}`);
+  },
+});
+
+const clientDocMime = new Set([
+  "image/png",
+  "image/jpeg",
+  "image/jpg",
+  "image/heic",
+  "image/heif",
+  "application/pdf",
+]);
+
+const clientDocFilter = (_req, file, cb) => {
+  const name = (file.originalname || "").toLowerCase();
+  const okByExt = /\.(png|jpe?g|heic|heif|pdf)$/i.test(name);
+  if (clientDocMime.has(file.mimetype) || (file.mimetype === "application/octet-stream" && okByExt)) {
+    cb(null, true);
+  } else {
+    cb(new Error("Only PNG, JPG, HEIC, HEIF, or PDF files are allowed."), false);
+  }
+};
+
+export const uploadClientDocument = multer({
+  storage: clientDocStorage,
+  fileFilter: clientDocFilter,
+  limits: { fileSize: 15 * 1024 * 1024 }, // 15MB
+});
