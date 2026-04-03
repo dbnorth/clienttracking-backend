@@ -3,6 +3,7 @@ import fs from "fs";
 import db from "../models/index.js";
 import logger from "../config/logger.js";
 import { getAccessibleClientOrNull } from "../authorization/clientAccess.js";
+import { encryptFileInPlace, decryptBufferIfNeeded } from "../utils/clientDocumentCrypto.js";
 
 const ClientDocument = db.clientDocument;
 const clientDocsUploadDir = "uploads/client-documents";
@@ -81,6 +82,14 @@ export const create = async (req, res) => {
   const relPath = path.join("client-documents", req.file.filename).replace(/\\/g, "/");
 
   try {
+    encryptFileInPlace(req.file.path);
+  } catch (encErr) {
+    logger.error(`Client document encryption failed: ${encErr.message}`);
+    unlinkStored(relPath);
+    return res.status(500).send({ message: "Could not store document securely." });
+  }
+
+  try {
     const row = await ClientDocument.create({
       clientId,
       documentType,
@@ -135,6 +144,13 @@ export const update = async (req, res) => {
   };
 
   if (req.file) {
+    try {
+      encryptFileInPlace(req.file.path);
+    } catch (encErr) {
+      logger.error(`Client document encryption failed: ${encErr.message}`);
+      unlinkStored(path.join("client-documents", req.file.filename));
+      return res.status(500).send({ message: "Could not store document securely." });
+    }
     data.filePath = path.join("client-documents", req.file.filename).replace(/\\/g, "/");
     data.originalFilename = req.file.originalname || null;
     data.mimeType = req.file.mimetype || null;
@@ -152,6 +168,50 @@ export const update = async (req, res) => {
     logger.error(`Error updating client document: ${err.message}`);
     res.status(500).send({ message: err.message || "Error updating document." });
   }
+};
+
+const asciiFilename = (name) => String(name || "document").replace(/[^\x20-\x7E]/g, "_");
+
+export const downloadFile = async (req, res) => {
+  const clientId = parseInt(req.params.clientId, 10);
+  const documentId = parseInt(req.params.documentId, 10);
+  if (Number.isNaN(clientId) || Number.isNaN(documentId)) {
+    return res.status(400).send({ message: "Invalid client or document id." });
+  }
+  const client = await getAccessibleClientOrNull(req, clientId);
+  if (!client) {
+    return res.status(404).send({ message: "Client not found." });
+  }
+
+  const row = await ClientDocument.findOne({ where: { id: documentId, clientId } });
+  if (!row) {
+    return res.status(404).send({ message: "Document not found." });
+  }
+
+  const base = path.basename(row.filePath);
+  const full = path.join(clientDocsUploadDir, base);
+  if (!fs.existsSync(full)) {
+    return res.status(404).send({ message: "File not found." });
+  }
+
+  let plaintext;
+  try {
+    const raw = fs.readFileSync(full);
+    plaintext = decryptBufferIfNeeded(raw);
+  } catch (err) {
+    logger.error(`Client document decrypt/read: ${err.message}`);
+    return res.status(500).send({ message: "Could not read document." });
+  }
+
+  const mime = row.mimeType || "application/octet-stream";
+  const original = row.originalFilename || `document-${documentId}`;
+  const safe = asciiFilename(original);
+  res.setHeader("Content-Type", mime);
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="${safe.replace(/"/g, "")}"; filename*=UTF-8''${encodeURIComponent(original)}`
+  );
+  res.send(plaintext);
 };
 
 export const remove = async (req, res) => {

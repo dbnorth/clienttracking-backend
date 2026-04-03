@@ -27,6 +27,8 @@ const Client = SequelizeInstance.define("client", {
   housingTypeId: { type: Sequelize.INTEGER },
   housingRedGreen: { type: Sequelize.STRING(20) },
   housingLocationId: { type: Sequelize.INTEGER },
+  daytimeLocationId: { type: Sequelize.INTEGER },
+  daytimeLocationOther: { type: Sequelize.STRING(500) },
   housingStreet: { type: Sequelize.STRING(255) },
   housingApt: { type: Sequelize.STRING(50) },
   housingCity: { type: Sequelize.STRING(100) },

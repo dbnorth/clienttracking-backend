@@ -82,6 +82,10 @@ exports.findAll = (req, res) => {
   const phone = req.query.phone?.trim();
   const intakeLocationId = req.query.intakeLocationId ? parseInt(req.query.intakeLocationId, 10) : null;
   const housingLocationId = req.query.housingLocationId ? parseInt(req.query.housingLocationId, 10) : null;
+  /** Calendar date YYYY-MM-DD: filter by dateOfFirstContact (matches “date added” in this app). */
+  const addedOn =
+    req.query.addedOn?.trim() ||
+    req.query.dateOfFirstContact?.trim();
 
   const andConditions = [];
   if (scope.mode === "scoped") {
@@ -97,6 +101,12 @@ exports.findAll = (req, res) => {
   if (status) andConditions.push({ status });
   if (intakeLocationId) andConditions.push({ intakeLocationId });
   if (housingLocationId) andConditions.push({ housingLocationId });
+  if (addedOn) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(addedOn)) {
+      return res.status(400).send({ message: "Invalid addedOn date (use YYYY-MM-DD)." });
+    }
+    andConditions.push({ dateOfFirstContact: { [Op.eq]: addedOn } });
+  }
   if (name || phone) {
     const orConditions = [];
     if (name) {
@@ -116,11 +126,13 @@ exports.findAll = (req, res) => {
 
   Client.findAll({
     where,
+    subQuery: false,
     include: [
       { model: Lookup, as: "referralType", attributes: ["id", "value"] },
       { model: Lookup, as: "drugOfChoice", attributes: ["id", "value"] },
       { model: Lookup, as: "housingType", attributes: ["id", "value"] },
       { model: Lookup, as: "housingLocation", attributes: ["id", "value"] },
+      { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"] },
       { model: Lookup, as: "race", attributes: ["id", "value"] },
       { model: Lookup, as: "ethnicity", attributes: ["id", "value"] },
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
@@ -149,6 +161,7 @@ exports.findOne = (req, res) => {
       { model: Lookup, as: "drugOfChoice", attributes: ["id", "value"] },
       { model: Lookup, as: "housingType", attributes: ["id", "value"] },
       { model: Lookup, as: "housingLocation", attributes: ["id", "value"] },
+      { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"] },
       { model: Lookup, as: "race", attributes: ["id", "value"] },
       { model: Lookup, as: "ethnicity", attributes: ["id", "value"] },
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
@@ -180,7 +193,7 @@ const CLIENT_ATTRS = [
   "firstName", "nickname", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
   "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugOfChoiceId", "drugMethod", "housingTypeId", "housingRedGreen",
-  "housingLocationId", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
+  "housingLocationId", "daytimeLocationId", "daytimeLocationOther", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
 

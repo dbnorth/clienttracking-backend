@@ -45,6 +45,8 @@ app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+/* Client documents are encrypted; require auth via GET .../documents/:id/file — do not expose raw files. */
+app.use("/clienttracking/uploads/client-documents", (_req, res) => res.sendStatus(404));
 app.use("/clienttracking/uploads", express.static(path.join(__dirname, "uploads")));
 app.use("/clienttracking", routes);
 

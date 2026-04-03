@@ -1,5 +1,5 @@
 import clients from "../controllers/client.controller.js";
-import { listForClient, create, update, remove } from "../controllers/clientDocument.controller.js";
+import { listForClient, create, update, remove, downloadFile } from "../controllers/clientDocument.controller.js";
 import authenticate from "../authorization/authorization.js";
 import { uploadClientPhoto, uploadClientDocument } from "../config/multer.js";
 import { Router } from "express";
@@ -18,6 +18,7 @@ const clientDocumentUpload = (req, res, next) => {
 router.post("/", [authenticate], clients.create);
 router.get("/", [authenticate], clients.findAll);
 router.get("/:clientId/documents", [authenticate], listForClient);
+router.get("/:clientId/documents/:documentId/file", [authenticate], downloadFile);
 router.post("/:clientId/documents", [authenticate], clientDocumentUpload, create);
 router.put("/:clientId/documents/:documentId", [authenticate], clientDocumentUpload, update);
 router.delete("/:clientId/documents/:documentId", [authenticate], remove);

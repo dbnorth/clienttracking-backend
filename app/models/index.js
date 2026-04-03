@@ -42,6 +42,7 @@ db.client.belongsTo(db.lookup, { as: "referralType", foreignKey: "referralTypeId
 db.client.belongsTo(db.lookup, { as: "drugOfChoice", foreignKey: "drugOfChoiceId" });
 db.client.belongsTo(db.lookup, { as: "housingType", foreignKey: "housingTypeId" });
 db.client.belongsTo(db.lookup, { as: "housingLocation", foreignKey: "housingLocationId" });
+db.client.belongsTo(db.lookup, { as: "daytimeLocation", foreignKey: "daytimeLocationId" });
 db.client.belongsTo(db.lookup, { as: "race", foreignKey: "raceId" });
 db.client.belongsTo(db.lookup, { as: "ethnicity", foreignKey: "ethnicityId" });
 db.client.belongsTo(db.lookup, { as: "gender", foreignKey: "genderId" });
