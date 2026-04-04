@@ -25,7 +25,8 @@ const exports = {};
 /**
  * GET /stats/service-status-timeseries
  * Query: fromDate, toDate (YYYY-MM-DD), optional serviceProvidedIds (comma-separated ints).
- * Counts client service rows per calendar day by status (activity date = status-appropriate date field).
+ * Counts by date field presence (not current status): requestedDate → Requested, providedDate → Provided,
+ * cancelledDate → Cancelled. A row may contribute to multiple series/days if multiple dates are set.
  */
 exports.serviceStatusTimeseries = async (req, res) => {
   try {
@@ -62,30 +63,35 @@ exports.serviceStatusTimeseries = async (req, res) => {
       replacements.orgId = scope.organizationId;
     }
 
-    const sql = `
-      SELECT
-        DATE(
-          CASE cs.status
-            WHEN 'provided' THEN cs.providedDate
-            WHEN 'cancelled' THEN cs.cancelledDate
-            ELSE cs.requestedDate
-          END
-        ) AS activityDate,
-        cs.status AS status,
-        COUNT(*) AS cnt
+    const baseJoin = `
       FROM clientservices cs
       INNER JOIN clients cl ON cl.id = cs.clientId
       INNER JOIN locations loc ON loc.id = cl.intakeLocationId
       WHERE cs.serviceProvidedId IS NOT NULL
-        AND (
-          (cs.status = 'provided' AND cs.providedDate IS NOT NULL AND cs.providedDate BETWEEN :fromDate AND :toDate)
-          OR (cs.status = 'cancelled' AND cs.cancelledDate IS NOT NULL AND cs.cancelledDate BETWEEN :fromDate AND :toDate)
-          OR (cs.status = 'requested' AND cs.requestedDate IS NOT NULL AND cs.requestedDate BETWEEN :fromDate AND :toDate)
-        )
         ${orgClause}
         ${serviceFilter}
-      GROUP BY activityDate, cs.status
-      ORDER BY activityDate ASC, cs.status ASC
+    `;
+    const sql = `
+      SELECT activityDate, status, cnt FROM (
+        SELECT DATE(cs.requestedDate) AS activityDate, 'requested' AS status, COUNT(*) AS cnt
+        ${baseJoin}
+          AND cs.requestedDate IS NOT NULL
+          AND cs.requestedDate BETWEEN :fromDate AND :toDate
+        GROUP BY DATE(cs.requestedDate)
+        UNION ALL
+        SELECT DATE(cs.providedDate), 'provided', COUNT(*)
+        ${baseJoin}
+          AND cs.providedDate IS NOT NULL
+          AND cs.providedDate BETWEEN :fromDate AND :toDate
+        GROUP BY DATE(cs.providedDate)
+        UNION ALL
+        SELECT DATE(cs.cancelledDate), 'cancelled', COUNT(*)
+        ${baseJoin}
+          AND cs.cancelledDate IS NOT NULL
+          AND cs.cancelledDate BETWEEN :fromDate AND :toDate
+        GROUP BY DATE(cs.cancelledDate)
+      ) AS combined
+      ORDER BY activityDate ASC, status ASC
     `;
 
     const rows = await sequelize.query(sql, {
@@ -99,7 +105,7 @@ exports.serviceStatusTimeseries = async (req, res) => {
       const d = r.activityDate instanceof Date ? r.activityDate.toISOString().slice(0, 10) : String(r.activityDate).slice(0, 10);
       const st = String(r.status || "").toLowerCase();
       const key = `${d}|${st}`;
-      byDateStatus.set(key, Number(r.cnt) || 0);
+      byDateStatus.set(key, (byDateStatus.get(key) || 0) + (Number(r.cnt) || 0));
     }
 
     const requested = [];
