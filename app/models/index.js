@@ -12,6 +12,7 @@ import ClientService from "./clientservice.model.js";
 import Referral from "./referral.model.js";
 import Location from "./location.model.js";
 import ClientDocument from "./clientDocument.model.js";
+import ServiceCount from "./serviceCount.model.js";
 
 const db = {};
 db.Sequelize = Sequelize;
@@ -28,6 +29,7 @@ db.clientService = ClientService;
 db.referral = Referral;
 db.location = Location;
 db.clientDocument = ClientDocument;
+db.serviceCount = ServiceCount;
 
 db.user.hasMany(db.session, { foreignKey: { allowNull: false }, onDelete: "CASCADE" });
 db.session.belongsTo(db.user, { foreignKey: { allowNull: false }, onDelete: "CASCADE" });
@@ -81,6 +83,14 @@ db.referral.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" }
 
 db.organization.hasMany(db.location, { foreignKey: "organizationId", onDelete: "CASCADE" });
 db.location.belongsTo(db.organization, { foreignKey: "organizationId", onDelete: "CASCADE" });
+
+db.location.hasMany(db.serviceCount, { foreignKey: "locationId", onDelete: "CASCADE" });
+db.serviceCount.belongsTo(db.location, { as: "location", foreignKey: "locationId", onDelete: "CASCADE" });
+db.serviceCount.belongsTo(db.lookup, {
+  as: "serviceProvided",
+  foreignKey: "serviceProvidedId",
+  onDelete: "RESTRICT",
+});
 
 db.organization.hasMany(db.lookup, { foreignKey: "organizationId", onDelete: "CASCADE" });
 db.lookup.belongsTo(db.organization, { as: "organization", foreignKey: "organizationId", onDelete: "CASCADE" });

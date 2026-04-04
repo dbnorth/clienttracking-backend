@@ -11,6 +11,7 @@ import LookupRoutes from "./lookup.routes.js";
 import OrganizationRoutes from "./organization.routes.js";
 import ReferringOrganizationRoutes from "./referringOrganization.routes.js";
 import LocationRoutes from "./location.routes.js";
+import ServiceCountRoutes from "./serviceCount.routes.js";
 import UserRoutes from "./user.routes.js";
 
 const router = Router();
@@ -27,5 +28,6 @@ router.use("/lookups", LookupRoutes);
 router.use("/organizations", OrganizationRoutes);
 router.use("/referring-organizations", ReferringOrganizationRoutes);
 router.use("/locations", LocationRoutes);
+router.use("/service-counts", ServiceCountRoutes);
 
 export default router;
