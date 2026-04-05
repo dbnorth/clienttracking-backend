@@ -13,6 +13,36 @@ const Lookup = db.lookup;
 const ReferringOrganization = db.referringOrganization;
 const Location = db.location;
 
+/** Normalize benefits / drugsOfChoice JSON and legacy drugOfChoiceId for API responses. */
+function clientToApiJson(row) {
+  if (!row) return null;
+  const plain = row.get ? row.get({ plain: true }) : { ...row };
+  if (plain.benefits != null && typeof plain.benefits === "string") {
+    try {
+      plain.benefits = JSON.parse(plain.benefits);
+    } catch (_) {
+      plain.benefits = [];
+    }
+  }
+  if (!Array.isArray(plain.benefits)) plain.benefits = [];
+  let drugs = plain.drugsOfChoice;
+  if (drugs != null && typeof drugs === "string") {
+    try {
+      drugs = JSON.parse(drugs);
+    } catch (_) {
+      drugs = [];
+    }
+  }
+  if (!Array.isArray(drugs)) drugs = [];
+  if (drugs.length === 0 && plain.drugOfChoiceId != null) {
+    drugs = [Number(plain.drugOfChoiceId)];
+  }
+  plain.drugsOfChoice = drugs;
+  delete plain.drugOfChoiceId;
+  delete plain.drugMethod;
+  return plain;
+}
+
 const exports = {};
 
 exports.create = async (req, res) => {
@@ -29,6 +59,9 @@ exports.create = async (req, res) => {
   if (!data.dateOfFirstContact) data.dateOfFirstContact = new Date().toISOString().split("T")[0];
   if (!data.statusChangeDate && data.status) data.statusChangeDate = new Date().toISOString().split("T")[0];
   if (Array.isArray(data.benefits)) data.benefits = JSON.stringify(data.benefits);
+  delete data.drugOfChoiceId;
+  delete data.drugMethod;
+  if (Array.isArray(data.drugsOfChoice)) data.drugsOfChoice = JSON.stringify(data.drugsOfChoice);
   data.userId = req.body.userId;
 
   if (scope.mode === "scoped" && data.intakeLocationId) {
@@ -129,7 +162,6 @@ exports.findAll = (req, res) => {
     subQuery: false,
     include: [
       { model: Lookup, as: "referralType", attributes: ["id", "value"] },
-      { model: Lookup, as: "drugOfChoice", attributes: ["id", "value"] },
       { model: Lookup, as: "housingType", attributes: ["id", "value"] },
       { model: Lookup, as: "housingLocation", attributes: ["id", "value"] },
       { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"] },
@@ -146,7 +178,7 @@ exports.findAll = (req, res) => {
       },
     ],
   })
-    .then((data) => res.send(data))
+    .then((data) => res.send(data.map((row) => clientToApiJson(row))))
     .catch((err) => {
       logger.error(`Error retrieving clients: ${err.message}`);
       res.status(500).send({ message: err.message });
@@ -158,7 +190,6 @@ exports.findOne = (req, res) => {
   Client.findByPk(id, {
     include: [
       { model: Lookup, as: "referralType", attributes: ["id", "value"] },
-      { model: Lookup, as: "drugOfChoice", attributes: ["id", "value"] },
       { model: Lookup, as: "housingType", attributes: ["id", "value"] },
       { model: Lookup, as: "housingLocation", attributes: ["id", "value"] },
       { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"] },
@@ -180,10 +211,7 @@ exports.findOne = (req, res) => {
         if (!clientAccessibleForScope(req, data)) {
           return res.status(404).send({ message: `Client with id=${id} not found.` });
         }
-        if (data.benefits) {
-          try { data.benefits = JSON.parse(data.benefits); } catch (_) {}
-        }
-        res.send(data);
+        res.send(clientToApiJson(data));
       } else res.status(404).send({ message: `Client with id=${id} not found.` });
     })
     .catch((err) => res.status(500).send({ message: err.message }));
@@ -192,7 +220,7 @@ exports.findOne = (req, res) => {
 const CLIENT_ATTRS = [
   "firstName", "nickname", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
-  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugOfChoiceId", "drugMethod", "housingTypeId", "housingRedGreen",
+  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugsOfChoice", "housingTypeId", "housingRedGreen",
   "housingLocationId", "daytimeLocationId", "daytimeLocationOther", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
@@ -221,6 +249,11 @@ exports.update = async (req, res) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
   });
   if (Array.isArray(data.benefits)) data.benefits = JSON.stringify(data.benefits);
+  if (data.drugsOfChoice !== undefined) {
+    if (Array.isArray(data.drugsOfChoice)) data.drugsOfChoice = JSON.stringify(data.drugsOfChoice);
+    data.drugOfChoiceId = null;
+  }
+  delete data.drugMethod;
 
   const scope = getClientTenantScope(req);
   if (scope.mode === "scoped" && data.intakeLocationId !== undefined && data.intakeLocationId !== null) {
