@@ -22,8 +22,9 @@ const Client = SequelizeInstance.define("client", {
   referralTypeId: { type: Sequelize.INTEGER },
   organizationId: { type: Sequelize.INTEGER },
   intakeLocationId: { type: Sequelize.INTEGER },
+  /** @deprecated Legacy single FK; use drugsOfChoice JSON. Kept for DB column / one-time migration reads. */
   drugOfChoiceId: { type: Sequelize.INTEGER },
-  drugMethod: { type: Sequelize.ENUM("oral", "inject", "smoke") },
+  drugsOfChoice: { type: Sequelize.TEXT },
   housingTypeId: { type: Sequelize.INTEGER },
   housingRedGreen: { type: Sequelize.STRING(20) },
   housingLocationId: { type: Sequelize.INTEGER },

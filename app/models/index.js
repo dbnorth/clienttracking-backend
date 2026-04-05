@@ -41,7 +41,6 @@ db.user.hasMany(db.client, { foreignKey: "userId", onDelete: "CASCADE" });
 db.client.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
 
 db.client.belongsTo(db.lookup, { as: "referralType", foreignKey: "referralTypeId" });
-db.client.belongsTo(db.lookup, { as: "drugOfChoice", foreignKey: "drugOfChoiceId" });
 db.client.belongsTo(db.lookup, { as: "housingType", foreignKey: "housingTypeId" });
 db.client.belongsTo(db.lookup, { as: "housingLocation", foreignKey: "housingLocationId" });
 db.client.belongsTo(db.lookup, { as: "daytimeLocation", foreignKey: "daytimeLocationId" });
