@@ -4,6 +4,7 @@ import { getAccessibleClientOrNull } from "../authorization/clientAccess.js";
 import { getClientTenantScope } from "../authorization/tenantScope.js";
 
 const ClientService = db.clientService;
+const Client = db.client;
 const Location = db.location;
 const Encounter = db.encounter;
 const Lookup = db.lookup;
@@ -89,8 +90,54 @@ exports.findAll = (req, res) => {
     clientInclude,
     { model: Location, as: "location", attributes: ["id", "name", "address"], required: false, include: [{ model: db.organization, as: "organization", attributes: ["id", "name"] }] },
     { model: Lookup, as: "serviceProvided", attributes: ["id", "value"] },
-    { model: Encounter, as: "encounterRequested", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
-    { model: Encounter, as: "encounterProvided", attributes: ["id", "date", "time", "notes", "encounterTypeId"], include: [{ model: Lookup, as: "encounterType", attributes: ["id", "value"] }] },
+    {
+      model: Encounter,
+      as: "encounterRequested",
+      attributes: [
+        "id",
+        "date",
+        "time",
+        "notes",
+        "encounterTypeId",
+        "currentSituationId",
+        "currentlyTakingDrugs",
+        "housingTypeId",
+        "housingRedGreen",
+        "housingLocationId",
+        "daytimeLocationId",
+      ],
+      include: [
+        { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+        { model: Lookup, as: "currentSituation", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "housingType", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "housingLocation", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"], required: false },
+      ],
+    },
+    {
+      model: Encounter,
+      as: "encounterProvided",
+      attributes: [
+        "id",
+        "date",
+        "time",
+        "notes",
+        "encounterTypeId",
+        "currentSituationId",
+        "currentlyTakingDrugs",
+        "housingTypeId",
+        "housingRedGreen",
+        "housingLocationId",
+        "daytimeLocationId",
+      ],
+      include: [
+        { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+        { model: Lookup, as: "currentSituation", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "housingType", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "housingLocation", attributes: ["id", "value"], required: false },
+        { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"], required: false },
+      ],
+    },
   ];
   ClientService.findAll({
     where,
@@ -107,7 +154,7 @@ exports.createBulk = async (req, res) => {
   const today = new Date().toISOString().split("T")[0];
   const now = new Date();
   const encounterTime = time || `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}:00`;
-  if (!clientId || !Array.isArray(items) || items.length === 0) {
+  if (!clientId || !Array.isArray(items)) {
     return res.status(400).send({ message: "clientId and items array are required." });
   }
   const allowedClient = await getAccessibleClientOrNull(req, clientId);
@@ -126,6 +173,36 @@ exports.createBulk = async (req, res) => {
   const toUpdateIdsSet = new Set();
   const toCancelIdsSet = new Set();
   const toBool = (v) => v === true || v === "true" || v === 1;
+  const parseOptInt = (v) => {
+    if (v == null || v === "") return null;
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? null : n;
+  };
+  const normStr = (v) => {
+    if (v == null || v === "") return null;
+    const s = String(v).trim();
+    return s || null;
+  };
+  const encounterSnapshot = {
+    currentSituationId: parseOptInt(req.body.currentSituationId),
+    currentlyTakingDrugs: toBool(req.body.currentlyTakingDrugs),
+    housingTypeId: parseOptInt(req.body.housingTypeId),
+    housingRedGreen: req.body.housingRedGreen ? String(req.body.housingRedGreen) : null,
+    housingLocationId: parseOptInt(req.body.housingLocationId),
+    daytimeLocationId: parseOptInt(req.body.daytimeLocationId),
+    phone: normStr(req.body.phone),
+  };
+  const addressKeys = ["housingStreet", "housingApt", "housingCity", "housingState", "housingZip"];
+  const hasAddressInBody = addressKeys.some((k) => Object.prototype.hasOwnProperty.call(req.body, k));
+  const addressForEncounter = hasAddressInBody
+    ? {
+        housingStreet: normStr(req.body.housingStreet),
+        housingApt: normStr(req.body.housingApt),
+        housingCity: normStr(req.body.housingCity),
+        housingState: normStr(req.body.housingState),
+        housingZip: normStr(req.body.housingZip),
+      }
+    : {};
   items.forEach((item) => {
     const serviceProvidedId = parseInt(item.serviceProvidedId, 10);
     if (!serviceProvidedId) return;
@@ -147,9 +224,6 @@ exports.createBulk = async (req, res) => {
     .map(([serviceProvidedId, flags]) => ({ serviceProvidedId, ...flags }));
   const toUpdateIds = Array.from(toUpdateIdsSet);
   const toCancelIds = Array.from(toCancelIdsSet);
-  if (toCreate.length === 0 && toUpdateIds.length === 0 && toCancelIds.length === 0) {
-    return res.status(400).send({ message: "At least one service must be marked requested, provided, or cancelled." });
-  }
   try {
     const encounter = await Encounter.create({
       clientId,
@@ -158,8 +232,29 @@ exports.createBulk = async (req, res) => {
       time: encounterTime,
       encounterTypeId: etid,
       notes: notes || null,
+      ...encounterSnapshot,
+      ...addressForEncounter,
     });
     const encounterId = encounter.id;
+    /** Use the saved encounter row so the client always matches DB (avoids body/parse drift). */
+    const clientPayload = {
+      currentSituationId: encounter.currentSituationId,
+      currentlyTakingDrugs: encounter.currentlyTakingDrugs,
+      housingTypeId: encounter.housingTypeId,
+      housingRedGreen: encounter.housingRedGreen,
+      housingLocationId: encounter.housingLocationId,
+      daytimeLocationId: encounter.daytimeLocationId,
+      phone: normStr(encounter.phone),
+    };
+    const encounterHasAddress = addressKeys.some((k) => normStr(encounter[k]));
+    if (hasAddressInBody || encounterHasAddress) {
+      clientPayload.housingStreet = normStr(encounter.housingStreet);
+      clientPayload.housingApt = normStr(encounter.housingApt);
+      clientPayload.housingCity = normStr(encounter.housingCity);
+      clientPayload.housingState = normStr(encounter.housingState);
+      clientPayload.housingZip = normStr(encounter.housingZip);
+    }
+    await Client.update(clientPayload, { where: { id: clientId } });
     const created = [];
     if (toCreate.length > 0) {
       const locationId = allowedClient.intakeLocationId ?? null;
