@@ -40,6 +40,9 @@ function clientToApiJson(row) {
   plain.drugsOfChoice = drugs;
   delete plain.drugOfChoiceId;
   delete plain.drugMethod;
+  if (plain.currentSituationId == null && plain.initialSituationId != null) {
+    plain.currentSituationId = Number(plain.initialSituationId);
+  }
   return plain;
 }
 
@@ -62,6 +65,9 @@ exports.create = async (req, res) => {
   delete data.drugOfChoiceId;
   delete data.drugMethod;
   if (Array.isArray(data.drugsOfChoice)) data.drugsOfChoice = JSON.stringify(data.drugsOfChoice);
+  if (data.currentSituationId == null && data.initialSituationId != null) {
+    data.currentSituationId = data.initialSituationId;
+  }
   data.userId = req.body.userId;
 
   if (scope.mode === "scoped" && data.intakeLocationId) {
@@ -169,6 +175,7 @@ exports.findAll = (req, res) => {
       { model: Lookup, as: "ethnicity", attributes: ["id", "value"] },
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
       { model: Lookup, as: "initialSituation", attributes: ["id", "value"] },
+      { model: Lookup, as: "currentSituation", attributes: ["id", "value"] },
       { model: ReferringOrganization, as: "organization", attributes: ["id", "name", "caseWorkerName", "phone"] },
       {
         model: Location,
@@ -197,6 +204,7 @@ exports.findOne = (req, res) => {
       { model: Lookup, as: "ethnicity", attributes: ["id", "value"] },
       { model: Lookup, as: "gender", attributes: ["id", "value"] },
       { model: Lookup, as: "initialSituation", attributes: ["id", "value"] },
+      { model: Lookup, as: "currentSituation", attributes: ["id", "value"] },
       { model: ReferringOrganization, as: "organization", attributes: ["id", "name", "caseWorkerName", "phone"] },
       {
         model: Location,
@@ -220,7 +228,7 @@ exports.findOne = (req, res) => {
 const CLIENT_ATTRS = [
   "firstName", "nickname", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
-  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "drugsOfChoice", "housingTypeId", "housingRedGreen",
+  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "currentSituationId", "drugsOfChoice", "currentlyTakingDrugs", "housingTypeId", "housingRedGreen",
   "housingLocationId", "daytimeLocationId", "daytimeLocationOther", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];

@@ -34,7 +34,9 @@
     "add-client-services": "node app/scripts/addClientServicesTable.js",
     "add-clientservice-service-provided": "node app/scripts/addClientServiceServiceProvidedId.js",
     "add-client-documents": "node app/scripts/addClientDocumentsTable.js",
-    "add-client-daytime-location": "node app/scripts/addClientDaytimeLocation.js"
+    "add-client-daytime-location": "node app/scripts/addClientDaytimeLocation.js",
+    "add-encounter-phone": "node app/scripts/addEncounterPhone.js",
+    "add-encounter-housing-address": "node app/scripts/addEncounterHousingAddress.js"
   },
   "keywords": [
     "node.js",

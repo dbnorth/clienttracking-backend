@@ -9,6 +9,36 @@ const Client = db.client;
 const Location = db.location;
 const Lookup = db.lookup;
 
+function normStr(v) {
+  if (v == null || v === "") return null;
+  const s = String(v).trim();
+  return s || null;
+}
+
+const ADDRESS_BODY_KEYS = ["housingStreet", "housingApt", "housingCity", "housingState", "housingZip"];
+
+/** Copy persisted encounter snapshot onto the client (always). Address lines only when the request includes any address key (Add Encounter bulk). */
+async function syncClientFromEncounterRow(encounterRow, reqBody, clientPk) {
+  if (!encounterRow) return;
+  const payload = {
+    currentSituationId: encounterRow.currentSituationId,
+    currentlyTakingDrugs: encounterRow.currentlyTakingDrugs,
+    housingTypeId: encounterRow.housingTypeId,
+    housingRedGreen: encounterRow.housingRedGreen,
+    housingLocationId: encounterRow.housingLocationId,
+    daytimeLocationId: encounterRow.daytimeLocationId,
+    phone: normStr(encounterRow.phone),
+  };
+  const hasAddressInRequest = ADDRESS_BODY_KEYS.some((k) => Object.prototype.hasOwnProperty.call(reqBody, k));
+  const encounterHasAddress = ADDRESS_BODY_KEYS.some((k) => normStr(encounterRow[k]));
+  if (hasAddressInRequest || encounterHasAddress) {
+    ADDRESS_BODY_KEYS.forEach((k) => {
+      payload[k] = normStr(encounterRow[k] ?? reqBody[k]);
+    });
+  }
+  await Client.update(payload, { where: { id: clientPk } });
+}
+
 const exports = {};
 
 exports.findAll = (req, res) => {
@@ -50,11 +80,14 @@ exports.findAll = (req, res) => {
   } else if (userId) {
     clientInclude.where = { userId };
   }
-  const include = [
-    clientInclude,
-    { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
+  const lookupIncludes = [
     { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+    { model: Lookup, as: "currentSituation", attributes: ["id", "value"], required: false },
+    { model: Lookup, as: "housingType", attributes: ["id", "value"], required: false },
+    { model: Lookup, as: "housingLocation", attributes: ["id", "value"], required: false },
+    { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"], required: false },
   ];
+  const include = [clientInclude, { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] }, ...lookupIncludes];
   Encounter.findAll({
     where,
     include,
@@ -77,22 +110,42 @@ exports.create = async (req, res) => {
   if (!etid || Number.isNaN(etid)) {
     return res.status(400).send({ message: "Encounter type is required." });
   }
+  const parseOptInt = (v) => {
+    if (v == null || v === "") return null;
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? null : n;
+  };
+  const toBool = (v) => v === true || v === "true" || v === 1;
   const data = {
     clientId,
     date: req.body.date,
     userId: req.body.userId,
     encounterTypeId: etid,
     notes: req.body.notes || null,
+    currentSituationId: parseOptInt(req.body.currentSituationId),
+    currentlyTakingDrugs: toBool(req.body.currentlyTakingDrugs),
+    housingTypeId: parseOptInt(req.body.housingTypeId),
+    housingRedGreen: req.body.housingRedGreen ? String(req.body.housingRedGreen) : null,
+    housingLocationId: parseOptInt(req.body.housingLocationId),
+    daytimeLocationId: parseOptInt(req.body.daytimeLocationId),
+    phone: normStr(req.body.phone),
+    housingStreet: normStr(req.body.housingStreet),
+    housingApt: normStr(req.body.housingApt),
+    housingCity: normStr(req.body.housingCity),
+    housingState: normStr(req.body.housingState),
+    housingZip: normStr(req.body.housingZip),
   };
   if (!data.userId) {
     return res.status(400).send({ message: "userId is required." });
   }
-  Encounter.create(data)
-    .then((result) => res.send(result))
-    .catch((err) => {
-      logger.error(`Error creating encounter: ${err.message}`);
-      res.status(500).send({ message: err.message || "Error creating encounter." });
-    });
+  try {
+    const result = await Encounter.create(data);
+    await syncClientFromEncounterRow(result, req.body, clientId);
+    res.send(result);
+  } catch (err) {
+    logger.error(`Error creating encounter: ${err.message}`);
+    res.status(500).send({ message: err.message || "Error creating encounter." });
+  }
 };
 
 exports.findAllForClient = async (req, res) => {
@@ -106,6 +159,10 @@ exports.findAllForClient = async (req, res) => {
     include: [
       { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
       { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+      { model: Lookup, as: "currentSituation", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "housingType", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "housingLocation", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"], required: false },
     ],
     order: [["date", "DESC"], ["id", "DESC"]],
   })
@@ -125,7 +182,19 @@ exports.findOne = async (req, res) => {
       {
         model: Client,
         as: "client",
-        attributes: ["id", "firstName", "lastName", "middleName", "phone", "intakeLocationId"],
+        attributes: [
+          "id",
+          "firstName",
+          "lastName",
+          "middleName",
+          "phone",
+          "intakeLocationId",
+          "housingStreet",
+          "housingApt",
+          "housingCity",
+          "housingState",
+          "housingZip",
+        ],
         include: [
           {
             model: db.location,
@@ -137,6 +206,10 @@ exports.findOne = async (req, res) => {
       },
       { model: User, as: "user", attributes: ["id", "fName", "lName", "username"] },
       { model: Lookup, as: "encounterType", attributes: ["id", "value"] },
+      { model: Lookup, as: "currentSituation", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "housingType", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "housingLocation", attributes: ["id", "value"], required: false },
+      { model: Lookup, as: "daytimeLocation", attributes: ["id", "value"], required: false },
     ],
   })
     .then((data) => {
@@ -153,15 +226,61 @@ exports.update = async (req, res) => {
     return res.status(404).send({ message: `Encounter with id=${id} not found.` });
   }
   const data = {};
-  ["date", "time", "userId", "encounterTypeId", "notes"].forEach((k) => {
+  [
+    "date",
+    "time",
+    "userId",
+    "encounterTypeId",
+    "notes",
+    "currentSituationId",
+    "currentlyTakingDrugs",
+    "housingTypeId",
+    "housingRedGreen",
+    "housingLocationId",
+    "daytimeLocationId",
+    "phone",
+    "housingStreet",
+    "housingApt",
+    "housingCity",
+    "housingState",
+    "housingZip",
+  ].forEach((k) => {
     if (req.body[k] !== undefined) data[k] = req.body[k];
   });
-  Encounter.update(data, { where: { id, clientId } })
-    .then((num) => {
-      if (num[0] >= 1) res.send({ message: "Encounter was updated successfully." });
-      else res.send({ message: `Cannot update encounter with id=${id}.` });
-    })
-    .catch((err) => res.status(500).send({ message: err.message }));
+  if (data.currentlyTakingDrugs !== undefined) {
+    data.currentlyTakingDrugs =
+      data.currentlyTakingDrugs === true || data.currentlyTakingDrugs === "true" || data.currentlyTakingDrugs === 1;
+  }
+  const parseOptInt = (v) => {
+    if (v == null || v === "") return null;
+    const n = parseInt(v, 10);
+    return Number.isNaN(n) ? null : n;
+  };
+  if (data.currentSituationId !== undefined) data.currentSituationId = parseOptInt(data.currentSituationId);
+  if (data.housingTypeId !== undefined) data.housingTypeId = parseOptInt(data.housingTypeId);
+  if (data.housingLocationId !== undefined) data.housingLocationId = parseOptInt(data.housingLocationId);
+  if (data.daytimeLocationId !== undefined) data.daytimeLocationId = parseOptInt(data.daytimeLocationId);
+  if (data.housingRedGreen !== undefined) {
+    data.housingRedGreen = data.housingRedGreen ? String(data.housingRedGreen) : null;
+  }
+  if (data.phone !== undefined) {
+    data.phone = normStr(data.phone);
+  }
+  ["housingStreet", "housingApt", "housingCity", "housingState", "housingZip"].forEach((k) => {
+    if (data[k] !== undefined) data[k] = normStr(data[k]);
+  });
+  const encId = parseInt(String(id), 10);
+  const cid = parseInt(String(clientId), 10);
+  try {
+    const [updatedRows] = await Encounter.update(data, { where: { id: encId, clientId: cid } });
+    if (updatedRows < 1) {
+      return res.send({ message: `Cannot update encounter with id=${id}.` });
+    }
+    /** Editing an encounter does not push snapshot fields to the client record (Add Encounter / bulk still does). */
+    res.send({ message: "Encounter was updated successfully." });
+  } catch (err) {
+    res.status(500).send({ message: err.message });
+  }
 };
 
 exports.delete = async (req, res) => {

@@ -13,6 +13,8 @@ const Client = SequelizeInstance.define("client", {
   ethnicityId: { type: Sequelize.INTEGER },
   genderId: { type: Sequelize.INTEGER },
   initialSituationId: { type: Sequelize.INTEGER },
+  /** Same lookup type as initialSituation (initial_situation); UI label "Current Status". */
+  currentSituationId: { type: Sequelize.INTEGER },
   parentFirstName: { type: Sequelize.STRING(100) },
   parentLastName: { type: Sequelize.STRING(100) },
   parentPhone: { type: Sequelize.STRING(50) },
@@ -25,6 +27,7 @@ const Client = SequelizeInstance.define("client", {
   /** @deprecated Legacy single FK; use drugsOfChoice JSON. Kept for DB column / one-time migration reads. */
   drugOfChoiceId: { type: Sequelize.INTEGER },
   drugsOfChoice: { type: Sequelize.TEXT },
+  currentlyTakingDrugs: { type: Sequelize.BOOLEAN, defaultValue: false },
   housingTypeId: { type: Sequelize.INTEGER },
   housingRedGreen: { type: Sequelize.STRING(20) },
   housingLocationId: { type: Sequelize.INTEGER },

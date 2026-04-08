@@ -48,6 +48,7 @@ db.client.belongsTo(db.lookup, { as: "race", foreignKey: "raceId" });
 db.client.belongsTo(db.lookup, { as: "ethnicity", foreignKey: "ethnicityId" });
 db.client.belongsTo(db.lookup, { as: "gender", foreignKey: "genderId" });
 db.client.belongsTo(db.lookup, { as: "initialSituation", foreignKey: "initialSituationId" });
+db.client.belongsTo(db.lookup, { as: "currentSituation", foreignKey: "currentSituationId" });
 db.client.belongsTo(db.referringOrganization, { as: "organization", foreignKey: "organizationId" });
 db.client.belongsTo(db.location, { as: "intakeLocation", foreignKey: "intakeLocationId" });
 
@@ -67,6 +68,10 @@ db.encounter.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" 
 db.user.hasMany(db.encounter, { foreignKey: "userId", onDelete: "CASCADE" });
 db.encounter.belongsTo(db.user, { foreignKey: "userId", onDelete: "CASCADE" });
 db.encounter.belongsTo(db.lookup, { as: "encounterType", foreignKey: "encounterTypeId" });
+db.encounter.belongsTo(db.lookup, { as: "currentSituation", foreignKey: "currentSituationId" });
+db.encounter.belongsTo(db.lookup, { as: "housingType", foreignKey: "housingTypeId" });
+db.encounter.belongsTo(db.lookup, { as: "housingLocation", foreignKey: "housingLocationId" });
+db.encounter.belongsTo(db.lookup, { as: "daytimeLocation", foreignKey: "daytimeLocationId" });
 
 db.client.hasMany(db.clientService, { foreignKey: "clientId", onDelete: "CASCADE" });
 db.clientService.belongsTo(db.client, { foreignKey: "clientId", onDelete: "CASCADE" });
