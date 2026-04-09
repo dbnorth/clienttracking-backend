@@ -68,6 +68,11 @@ exports.create = async (req, res) => {
   if (data.currentSituationId == null && data.initialSituationId != null) {
     data.currentSituationId = data.initialSituationId;
   }
+  ["childWelfareSystemCase", "fosterCareHistory", "juvenileJusticeHistory", "everInJailOrPrison"].forEach((k) => {
+    if (data[k] !== undefined) {
+      data[k] = data[k] === true || data[k] === "true" || data[k] === 1;
+    }
+  });
   data.userId = req.body.userId;
 
   if (scope.mode === "scoped" && data.intakeLocationId) {
@@ -228,7 +233,9 @@ exports.findOne = (req, res) => {
 const CLIENT_ATTRS = [
   "firstName", "nickname", "middleName", "lastName", "suffix", "birthdate", "parentFirstName", "parentLastName", "parentPhone",
   "phone", "emergencyContactName", "emergencyContactPhone", "referralTypeId", "organizationId",
-  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "currentSituationId", "drugsOfChoice", "currentlyTakingDrugs", "housingTypeId", "housingRedGreen",
+  "intakeLocationId", "raceId", "ethnicityId", "genderId", "initialSituationId", "currentSituationId", "drugsOfChoice", "currentlyTakingDrugs",
+  "childWelfareSystemCase", "fosterCareHistory", "juvenileJusticeHistory", "everInJailOrPrison",
+  "housingTypeId", "housingRedGreen",
   "housingLocationId", "daytimeLocationId", "daytimeLocationOther", "housingStreet", "housingApt", "housingCity", "housingState", "housingZip",
   "benefits", "status", "statusChangeDate", "dateOfFirstContact", "userId", "photoUrl",
 ];
@@ -262,6 +269,11 @@ exports.update = async (req, res) => {
     data.drugOfChoiceId = null;
   }
   delete data.drugMethod;
+  ["childWelfareSystemCase", "fosterCareHistory", "juvenileJusticeHistory", "everInJailOrPrison"].forEach((k) => {
+    if (data[k] !== undefined) {
+      data[k] = data[k] === true || data[k] === "true" || data[k] === 1;
+    }
+  });
 
   const scope = getClientTenantScope(req);
   if (scope.mode === "scoped" && data.intakeLocationId !== undefined && data.intakeLocationId !== null) {
