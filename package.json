@@ -36,7 +36,9 @@
     "add-client-documents": "node app/scripts/addClientDocumentsTable.js",
     "add-client-daytime-location": "node app/scripts/addClientDaytimeLocation.js",
     "add-encounter-phone": "node app/scripts/addEncounterPhone.js",
-    "add-encounter-housing-address": "node app/scripts/addEncounterHousingAddress.js"
+    "add-encounter-housing-address": "node app/scripts/addEncounterHousingAddress.js",
+    "add-client-situation-screening": "node app/scripts/addClientSituationScreening.js",
+    "add-client-ever-in-jail-or-prison": "node app/scripts/addClientEverInJailOrPrison.js"
   },
   "keywords": [
     "node.js",

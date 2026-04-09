@@ -28,6 +28,11 @@ const Client = SequelizeInstance.define("client", {
   drugOfChoiceId: { type: Sequelize.INTEGER },
   drugsOfChoice: { type: Sequelize.TEXT },
   currentlyTakingDrugs: { type: Sequelize.BOOLEAN, defaultValue: false },
+  /** Situation screening (household / history). */
+  childWelfareSystemCase: { type: Sequelize.BOOLEAN, defaultValue: false },
+  fosterCareHistory: { type: Sequelize.BOOLEAN, defaultValue: false },
+  juvenileJusticeHistory: { type: Sequelize.BOOLEAN, defaultValue: false },
+  everInJailOrPrison: { type: Sequelize.BOOLEAN, defaultValue: false },
   housingTypeId: { type: Sequelize.INTEGER },
   housingRedGreen: { type: Sequelize.STRING(20) },
   housingLocationId: { type: Sequelize.INTEGER },
